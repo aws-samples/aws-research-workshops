@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - npm install -g serverless
+  build:
+    commands:
+    - sls package -v -s dev -r $AWS_DEFAULT_REGION
+  post_build:
+    commands:
+    - for file in ./dist/cloudformation*.json; do cp "$file" "./serverless-stack.json"; done
+    - prefix=$(node ./get-sls-prefix.js)
+    - echo "$prefix"
+    - aws s3 sync ./dist $prefix
+
+artifacts:
+  files:
+  - serverless-stack.json

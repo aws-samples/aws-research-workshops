@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Serverless Pipeline
+
+Parameters:
+  ApplicationName: 
+    Description: This will be used to name the pipeline and build resources
+    Type: String
+    AllowedPattern: '[A-Za-z0-9-]+'  
+  ArtifactS3Bucket:
+    Description: An existing S3 bucket within this AWS account
+    Type: String
+  GitHubOAuthToken: 
+    Description: Create a token with 'repo' and 'admin:repo_hook' permissions here https://github.com/settings/tokens
+    Type: String
+  GitHubUser:
+    Description: Enter GitHub username of the repository owner
+    Type: String
+  GitHubRepository:
+    Description: Enter the repository name that should be monitored for changes
+    Type: String
+  GitHubBranch:
+    Description: Enter the GitHub branch to monitored
+    Type: String
+    Default: master
+  Email:
+    Description: The email address where CodePipeline sends pipeline notifications
+    Type: String
+
+Resources:
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactS3Bucket
+      Name: !Ref ApplicationName
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn          
+      Stages:
+      - Name: Source
+        Actions:
+        - Name: GitHub
+          ActionTypeId:
+            Category: Source
+            Owner: ThirdParty
+            Version: 1
+            Provider: GitHub
+          OutputArtifacts:
+          - Name: Source
+          Configuration:
+            Owner: !Ref GitHubUser
+            Repo: !Ref GitHubRepository
+            Branch: !Ref GitHubBranch
+            OAuthToken: !Ref GitHubOAuthToken
+      - Name: Build
+        Actions:
+        - Name: CodeBuild
+          InputArtifacts:
+          - Name: Source
+          ActionTypeId: 
+            Category: Build
+            Owner: AWS
+            Version: 1
+            Provider: CodeBuild
+          OutputArtifacts:
+          - Name: Build
+          Configuration: 
+            ProjectName: !Ref CodeBuild
+      - Name: TestStack
+        Actions:
+        - Name: DeployStack
+          RunOrder: 1
+          ActionTypeId:
+            Category: Deploy
+            Owner: AWS
+            Provider: CloudFormation
+            Version: '1'
+          InputArtifacts:
+          - Name: Build
+          Configuration:
+            ActionMode: REPLACE_ON_FAILURE
+            RoleArn: !GetAtt CFNServiceRole.Arn
+            StackName: !Sub ${ApplicationName}-test
+            Capabilities: CAPABILITY_NAMED_IAM
+            TemplatePath: !Sub 'Build::serverless-stack.json'
+        - Name: ApproveTestStack
+          RunOrder: 2
+          ActionTypeId: 
+            Category: Approval
+            Owner: AWS
+            Version: 1
+            Provider: Manual
+          Configuration:
+            NotificationArn: !Ref CodePipelineSNSTopic
+            CustomData: 'Do you want to approve test stack?'
+
+  CodePipelineSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: !Ref Email
+        Protocol: email
+
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref ApplicationName
+      Description: !Sub Build project for ${ApplicationName}
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: './buildspec.yml'
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/nodejs:8.11.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: ARTIFACT_S3_BUCKET
+          Value: !Sub ${ArtifactS3Bucket}
+      Artifacts:
+        Type: CODEPIPELINE
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ApplicationName}-CodeBuild-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+      Policies: 
+      - PolicyName: !Sub ${ApplicationName}-CodeBuild-Policy
+        PolicyDocument:
+            Version: '2012-10-17'
+            Statement:               
+            - Effect: Allow
+              Resource: '*'
+              Action: 
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            - Effect: Allow
+              Resource: 
+              - !Sub 'arn:aws:s3:::${ArtifactS3Bucket}'
+              - !Sub 'arn:aws:s3:::${ArtifactS3Bucket}/*'
+              Action: 
+              - s3:PutObject
+              - s3:Get*
+              - s3:List*
+
+  CFNServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - cloudformation.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: CFNServicePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - iam:PassRole
+            - iam:GetRole
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:PutRolePolicy
+            - iam:DeleteRolePolicy         
+            - iam:AttachRolePolicy
+            - iam:DetachRolePolicy
+            Effect: Allow             
+            Resource:
+            - '*'
+          - Action:
+            - events:*
+            - logs:*
+            - cognito-idp:*
+            - cognito-identity:*
+            - apigateway:*
+            - dynamodb:*
+            - lambda:*
+            - s3:*
+            - sqs:*
+            Effect: Allow             
+            Resource:
+            - '*'
+          - Effect: Allow
+            Action:          
+            - autoscaling-plans:*
+            - dynamodb:DescribeTable
+            - dynamodb:UpdateTable
+            - cloudwatch:PutMetricAlarm
+            - cloudwatch:DescribeAlarms
+            - cloudwatch:GetMetricStatistics
+            - cloudwatch:SetAlarmState
+            - cloudwatch:DeleteAlarms
+            - application-autoscaling:RegisterScalableTarget
+            - application-autoscaling:DescribeScalingPolicies
+            - application-autoscaling:PutScalingPolicy
+            - application-autoscaling:DeleteScalingPolicy
+            - application-autoscaling:DeregisterScalableTarget
+            Resource: '*'
+          - Action: # change sets
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:ExecuteChangeSet
+            Resource: '*'
+            Effect: Allow
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - codepipeline.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: CodePipelineServicePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action: # S3 artifact bucket
+            - 's3:*'
+            Effect: Allow
+            Resource: !Sub 'arn:aws:s3:::${ArtifactS3Bucket}*'
+          - Action: # cloudformation
+            - cloudformation:CreateStack
+            - cloudformation:DeleteStack
+            - cloudformation:DescribeStacks
+            - cloudformation:UpdateStack
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:SetStackPolicy
+            - cloudformation:ValidateTemplate
+            - iam:PassRole
+            Resource: '*'
+            Effect: Allow
+          - Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            Resource: '*'
+            Effect: Allow
+          - Action:
+            - sns:*
+            Effect: Allow
+            Resource:
+            - !Ref CodePipelineSNSTopic
+
+Outputs:
+  CodePipelineURL:
+    Description: The URL for the created pipeline
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${ApplicationName}
