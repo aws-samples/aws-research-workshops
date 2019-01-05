@@ -1,0 +1,63 @@
+{
+  "core": {
+    "cert_arn": "",
+    "cert_id": "",
+    "thing_arn": "",
+    "thing_name": ""
+  },
+  "core_def": {
+    "id": "",
+    "version_arn": ""
+  },
+  "device_def": {
+    "id": "",
+    "version_arn": ""
+  },
+  "devices": {
+    "device_thing_name": {
+      "cert_arn": "",
+      "cert_id": "",
+      "thing_arn": "",
+      "thing_name": ""
+    }
+  },
+  "func_def": {
+    "id": "",
+    "version_arn": ""
+  },
+  "group": {
+    "id": "",
+    "name": "",
+    "version": "",
+    "version_arn": ""
+  },
+  "lambda_functions": {
+    "TrackerBrain": {
+      "arn": "",
+      "arn_qualifier": ""
+    },
+    "TrackerErrorDetector": {
+      "arn": "",
+      "arn_qualifier": ""
+    }
+  },
+  "logger_def": {
+    "id": "",
+    "version_arn": ""
+  },
+  "misc": {
+    "account_id": "",
+    "iot_endpoint": "",
+    "tracker_shadow_name": "tracker_brain",
+    "policy_name": "ggc-default-policy"
+  },
+  "subscription_def": {
+    "id": "",
+    "version_arn": ""
+  },
+  "subscriptions": {
+    "all": "tracker/#",
+    "errors": "tracker/errors",
+    "telemetry": "tracker/telemetry"
+  }
+}

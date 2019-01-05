@@ -1,0 +1,11 @@
+AWSIoTPythonSDK>=1.2.0
+boto3>=1.4.7
+cachetools==2.0.0
+fire==0.1.2
+Flask==0.11.1
+Flask-Cors==3.0.2
+futures==3.0.5
+gg-group-setup>=0.5.2
+gpiozero>=1.3.2
+idna==2.5
+ipaddress==1.0.18

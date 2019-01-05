@@ -1,0 +1,12 @@
+{
+  "func_desc": "Tracker function for overall flow",
+  "func_name": "TrackerBrain",
+  "lambda_alias": "tracker",
+  "lambda_arn": "arn:aws:lambda:us-west-2:649037252677:function:TrackerBrain:tracker",
+  "lambda_dir": "lambda/TrackerBrain",
+  "lambda_files": [
+    "tracker_brain.py"
+  ],
+  "lambda_handler": "handler",
+  "lambda_main": "tracker_brain"
+}

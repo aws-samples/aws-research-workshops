@@ -1,0 +1,56 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>{% block title %}{% endblock %}</title>
+    <!-- Bootstrap core CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom styles for this template -->
+    <link href="https://getbootstrap.com/examples/jumbotron-narrow/jumbotron-narrow.css" rel="stylesheet">  
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300|Ubuntu" rel="stylesheet">  </head>
+    <link rel="stylesheet" href="./../static/css/style.css">
+  
+  <body>
+    <div class="container">
+      <div class="header clearfix">
+        <h1>Web UI - data feed device</h1>
+        <nav>
+          <ul class="nav nav-pills pull-right">
+            <li role="presentation"><a href="https://console.aws.amazon.com/iotv2/home?region=us-east-1#/greengrassIntro" target="_blank">Greengrass</a></li>
+            <li role="presentation"><a href="https://github.com/awslabs/aws-greengrass-mini-fulfillment/tree/master/docs" target="_blank">Documentation</a></li>
+            <li role="presentation"><a href="https://console.aws.amazon.com/iotv2/home?region=us-east-1#/downloads" target="_blank">Download</a></li>
+            <li role="presentation"><a href="https://aws.amazon.com/greengrass/" target="_blank">Learn more</a></li>
+          </ul>
+        </nav>
+      </div>
+        <h1>Frequency</h1>
+        <div><strong>frequency</strong>: {{freq}}</div>
+
+        <hr/>
+        <h1>Heart beat</h1>
+        <span id="speedometer"></span>
+        {% for key, value in heartbeat.iteritems() %}
+          <div><strong>{{key}}</strong>: {{value}}</div>
+        {%- endfor%}
+
+
+        <hr/>
+        <h1>Images</h1>
+        {% for key, value in images.iteritems() %}
+          <strong>{{key}}:</strong>
+          {% for key2, nested_value in value.items() %}
+            <span>{{nested_value}}</span><br/>
+          {% endfor %}
+        {% endfor %}
+        
+        <hr/>
+        <h1>Logs</h1>
+        <pre><code>{% for item in logs %}{% for key, value in item.iteritems() %}{% if 'payload' in key %}<span><strong>{{key}}</strong>: {{value}}</span>{% else %}<p>{{value}}</p>{% endif %}{% endfor %}{% endfor %}</code></pre>
+      
+      <footer class="footer">
+        <p>©2017 Amazon Web Services</p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

@@ -1,0 +1,155 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Greengrass EC2 instance
+
+Parameters:
+
+  InstanceType:
+    Description: Greengrass EC2 Instance
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t3.small, t3.medium, t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large, m1.small,
+      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
+      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
+      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
+      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
+      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  Subnet:
+    Description: Choose a Subnet to deploy the Instance
+    Type: AWS::EC2::Subnet::Id
+
+#   KeyName: 
+#     Description: KeyName to SSH Login
+#     Type: AWS::EC2::KeyPair::KeyName
+
+  ImageId:
+    Description: AMI name
+    Type: String
+    Default: sg-02f5ebe0fb3be07f1
+
+  SG:
+    Description: Choose a SecurityGroupId
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+
+  ggdEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+#       KeyName: !Ref KeyName
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref Subnet
+      SecurityGroupIds: 
+        - !Ref SG
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub 
+                    - |
+                      #!/bin/bash
+                      sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+
+                      echo LANG=en_US.utf-8 >> /etc/environment
+                      echo LC_ALL=en_US.UTF-8 >> /etc/environment
+
+                      if ! uname -r |grep amzn ; then
+                          exit 1
+                      fi
+
+                      cd /tmp/
+                      wget https://d1onfpft10uf5o.cloudfront.net/greengrass-core/downloads/1.7.0/greengrass-linux-x86-64-1.7.0.tar.gz
+
+                      tar zxf /tmp/greengrass-linux-x86-64-1.7.0.tar.gz -C /
+
+                      cp /tmp/root.ca.pem /greengrass/certs/
+                      useradd -r ggc_user
+                      groupadd -r ggc_group
+
+                      echo 'fs.protected_hardlinks = 1' >> /etc/sysctl.d/00-defaults.conf
+                      echo 'fs.protected_symlinks = 1' >> /etc/sysctl.d/00-defaults.conf
+
+                      sysctl -p
+                      sysctl -p /etc/sysctl.d/00-defaults.conf
+
+                      echo '# AWS Greengrass' >> /etc/fstab
+                      echo 'cgroup /sys/fs/cgroup cgroup defaults 0 0' >> /etc/fstab
+                      mount -a
+
+                      yum -y install sqlite telnet jq strace git tree
+
+                      PATH=$PATH:/usr/local/bin
+                      pip install --upgrade pip
+                      hash -r
+                      pip install AWSIoTPythonSDK
+                      pip install urllib3
+                      pip install --upgrade awscli
+                      pip install boto3
+                      pip install fire
+                      pip install gg-group-setup
+
+                      # mkdir -p /home/ec2-user/groups/tracker
+                      # cd /home/ec2-user/groups/tracker
+                      # unzip tracker.zip
+
+                      # chmod 755 cp_certs.sh start_tracker.sh stop_tracker.sh
+
+                      # ./cp_certs.sh
+
+                      # chown -R ec2-user:ec2-user /home/ec2-user/groups/tracker/*
+                      # chmod 755 /home/ec2-user/groups/tracker/*.sh
+                      # chmod 755 /home/ec2-user/hr/*.sh
+                      # chmod 755 /home/ec2-user/bp/*.sh
+
+                      REGION=${region}
+
+                      mkdir /home/ec2-user/.aws
+                      echo '[default]' > /home/ec2-user/.aws/config
+                      echo 'output = json' >> /home/ec2-user/.aws/config
+                      echo \"region = $REGION\" >> /home/ec2-user/.aws/config
+                      chown -R ec2-user:ec2-user /home/ec2-user/.aws
+                      chmod 400 /home/ec2-user/.aws/config
+                      mkdir /root/.aws
+                      echo '[default]' > /root/.aws/config
+                      echo 'output = json' >> /root/.aws/config
+                      echo \"region = $REGION\" >> /root/.aws/config
+                      chmod 400 /root/.aws/config
+                      exit 0
+                      sudo yum install -y mariadb.x86_64
+                    - { region: !Ref "AWS::Region" }
+      Tags:
+        - Key: Name
+          Value: GGDSessionManager
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: /
+      Roles:
+        - !Ref EC2Role 
+      InstanceProfileName: EC2InstanceProfile
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EC2RoleForSessionManager
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+
+Outputs:
+    EC2InstanceId:
+        Description: The Greengrass device instance id
+        Value: !Ref ggdEC2Instance

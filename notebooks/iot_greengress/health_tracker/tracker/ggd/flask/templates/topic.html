@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sorting Hat Dashboard</title>
+</head>
+<body>
+{% for key, value in topic_dict.iteritems() %}
+{#  <h2>Dict Item:</h2>#}
+{#  <h3>{{ dict_item }}</h3>#}
+{#   {% for key, value in dict_item.items() %}#}
+      <h2>Key: {{key}}</h2>
+      <h3>Value: {{value}}</h3>
+{#   {% endfor %}#}
+{% endfor %}
+</body>
+</html>
