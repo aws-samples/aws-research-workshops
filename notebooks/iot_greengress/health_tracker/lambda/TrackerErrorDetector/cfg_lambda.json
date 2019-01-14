@@ -2,7 +2,7 @@
   "func_desc": "Tracker function for overall error detection",
   "func_name": "TrackerErrorDetector",
   "lambda_alias": "tracker",
-  "lambda_arn": "arn:aws:lambda:us-west-2:649037252677:function:TrackerErrorDetector:tracker",
+  "lambda_arn": "",
   "lambda_dir": "lambda/TrackerErrorDetector",
   "lambda_files": [
     "error_detector.py"
