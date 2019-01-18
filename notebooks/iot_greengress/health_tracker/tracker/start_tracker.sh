@@ -8,13 +8,13 @@ chmod 755 load_gg_profile.sh
 
 cd ${tracker_dir}
 cd ..
-screen -S button -h 200 -d -m python \
--m tracker.ggd.button button_ggd \
+screen -S heartrate -h 200 -d -m python \
+-m tracker.ggd.heartrate heartrate_ggd \
 ~/health_tracker/tracker/cfg.json \
 ~/health_tracker/tracker/ggd/certs/root-ca.pem \
-~/health_tracker/tracker/ggd/certs/button_ggd.pem \
-~/health_tracker/tracker/ggd/certs/button_ggd.prv \
-~/health_tracker/tracker/ggd/certs box
+~/health_tracker/tracker/ggd/certs/heartrate_ggd.pem \
+~/health_tracker/tracker/ggd/certs/heartrate_ggd.prv \
+~/health_tracker/tracker/ggd/certs 
 screen -S heartbeat -h 200 -d -m python \
 -m tracker.ggd.heartbeat heartbeat_ggd \
 ~/health_tracker/tracker/cfg.json \

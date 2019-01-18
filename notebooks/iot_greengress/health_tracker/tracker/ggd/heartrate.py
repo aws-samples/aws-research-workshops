@@ -68,7 +68,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
         caPath=root_ca, certPath=certificate, keyPath=private_key
     )
     dip.configureTimeout(10)  # 10 sec
-    logging.info("[hr] Discovery using CA:{0} cert:{1} prv_key:{2}".format(
+    logging.info("[button] Discovery using CA:{0} cert:{1} prv_key:{2}".format(
         root_ca, certificate, private_key
     ))
 
@@ -76,7 +76,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
         device_name=device_name, dip=dip, config_file=config_file,
     )
     if not gg_core:
-        raise EnvironmentError("[hr] Couldn't find the Core")
+        raise EnvironmentError("[button] Couldn't find the Core")
 
     ca_list = discovery_info.getAllCas()
     group_id, ca = ca_list[0]
@@ -84,7 +84,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
 
     mqttc = AWSIoTMQTTClient(ggd_name)
     # local Greengrass Core discovered, now connect to Core from this Device
-    log.info("[hr] gca_file:{0} cert:{1}".format(
+    log.info("[button] gca_file:{0} cert:{1}".format(
         group_ca_file, certificate))
     mqttc.configureCredentials(group_ca_file, private_key, certificate)
     mqttc.configureOfflinePublishQueueing(10, DROP_OLDEST)
