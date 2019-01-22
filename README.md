@@ -155,7 +155,7 @@ SageMaker provides hosted Jupyter notebooks that require no setup, so you can be
 
 2. Click **Open**. You will now see the Jupyter homepage for your notebook instance.
 
-![Open Notebook](./images/jupyter-homepage.png)
+![Open Notebook](./docs/assets/images/jupyter-homepage.png)
 
 ## License Summary
 
