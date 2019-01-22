@@ -35,6 +35,42 @@ We recommend you use the latest version of Chrome or Firefox to complete this wo
 
 For any workshop module that requires use of the AWS Command Line Interface (see above), you also will need a **plain text** editor for writing scripts. Any editor that inserts Windows or other special characters potentially will cause scripts to fail.
 
+## Launching Research Notebook Instance
+
+SageMaker provides hosted Jupyter notebooks that require no setup, so you can begin processing your training data sets immediately. With a few clicks in the SageMaker console, you can create a fully managed notebook instance, pre-loaded with useful libraries for machine learning.
+
+1. In the upper-right corner of the AWS Management Console, confirm you are in the desired AWS region. Select a Region with SageMaker support.
+
+2. From the Services drop-down menu type `SageMaker` to filter the list of all services.  This will bring you to the Amazon CloudFormation console homepage.
+
+![Service Search](./docs/assets/images/sagemaker-services.png)
+
+3. To Cloud **Notebook instances**, and click the **Create notebook instance** button at the top of the browser window.
+
+![Notebook Instances](./docs/assets/images/create-notebook.png)
+
+4. Type `aws-research-workshops-notebook` into the **Notebook instance name** text box, and select ml.t2.medium for the **Notebook instance type**.
+
+![Create Notebook Instance](./docs/assets/images/notebook-settings.png)
+
+5. For IAM role, choose **Create a new role**, (steps to come) will require sagemaker and glue trust permission and `AdministratorAccess` policy for access required services.
+
+6. In the Git Repositories section clone this repo to be included in the notebook instance.
+
+![Notebook Git](./docs/assets/images/notebook-git.png)
+
+7. Click **Create notebook instance**.
+
+#### 3. Accessing the Notebook Instance
+
+1. Wait for the server status to change to **InService**. This will take several minutes but likely less.
+
+![Access Notebook](./docs/assets/images/open-jupyter.png)
+
+2. Click **Open**. You will now see the Jupyter homepage for your notebook instance.
+
+![Open Notebook](./images/jupyter-homepage.png)
+
 ## License Summary
 
 This sample code is made available under a modified MIT license. See the [LICENSE](LICENSE) file.
