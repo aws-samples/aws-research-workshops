@@ -35,6 +35,85 @@ We recommend you use the latest version of Chrome or Firefox to complete this wo
 
 For any workshop module that requires use of the AWS Command Line Interface (see above), you also will need a **plain text** editor for writing scripts. Any editor that inserts Windows or other special characters potentially will cause scripts to fail.
 
+### IAM Role for Notebook Instance
+
+The Notebook Instance will require `sagemaker.amazonaws.com` and `glue.amazonaws.com` trust permissions and use the `AdministratorAccess` policy to access required services in the workshops. Create the IAM Role like below:
+
+``` python
+import logging
+import os
+import time
+import argparse
+import botocore.session
+import botocore.exceptions
+
+def create_role(iam, policy_name, assume_role_policy_document, inline_policy_name=None, policy_str=None):
+    """Creates a new role if there is not already a role by that name"""
+    if role_exists(iam, policy_name):
+        logging.info('Role "%s" already exists. Assuming correct values.', policy_name)
+        return get_role_arn(iam, policy_name)
+    else:
+        response = iam.create_role(RoleName=policy_name,
+                                   AssumeRolePolicyDocument=assume_role_policy_document)
+        
+        if policy_str is not None:
+            iam.put_role_policy(RoleName=policy_name,
+                            PolicyName=inline_policy_name, PolicyDocument=policy_str)
+        logging.info('response for creating role = "%s"', response)
+        return response['Role']['Arn']
+
+def role_exists(iam, role_name):
+    """Checks if the role exists already"""
+    try:
+        iam.get_role(RoleName=role_name)
+    except botocore.exceptions.ClientError:
+        return False
+    return True
+
+def get_role_arn(iam, role_name):
+    """Gets the ARN of role"""
+    response = iam.get_role(RoleName=role_name)
+    return response['Role']['Arn']
+    
+iam = boto3.client('iam')
+
+role_doc = {
+        "Version": "2012-10-17", 
+        "Statement": [
+            {"Sid": "", 
+             "Effect": "Allow", 
+             "Principal": {
+                 "Service": [
+                     "sagemaker.amazonaws.com",
+                     "glue.amazonaws.com"
+             }, 
+             "Action": "sts:AssumeRole"
+        }]
+    }
+
+inline_policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": [
+                    "*",
+                    "*"
+                ],
+                "Resource": [
+                    "*"
+                ],
+                "Effect": "Allow"
+            }
+        ]
+    }
+
+role_arn = workshop.create_role(iam, firehose_role_name, json.dumps(role_doc), firehose_policy_name, json.dumps(inline_policy))
+print(role_arn)
+```
+
+1. 
+
+
 ## Launching Research Notebook Instance
 
 SageMaker provides hosted Jupyter notebooks that require no setup, so you can begin processing your training data sets immediately. With a few clicks in the SageMaker console, you can create a fully managed notebook instance, pre-loaded with useful libraries for machine learning.
@@ -45,15 +124,15 @@ SageMaker provides hosted Jupyter notebooks that require no setup, so you can be
 
 ![Service Search](./docs/assets/images/sagemaker-services.png)
 
-3. To Cloud **Notebook instances**, and click the **Create notebook instance** button at the top of the browser window.
+3. On the left hand side click **Notebook instances**, and click the **Create notebook instance** button at the top of the browser window.
 
 ![Notebook Instances](./docs/assets/images/create-notebook.png)
 
-4. Type `aws-research-workshops-notebook` into the **Notebook instance name** text box, and select ml.t2.medium for the **Notebook instance type**.
+4. In **Notebook instance settings** type `aws-research-workshops-notebook` into the **Notebook instance name** text box, select `ml.t2.medium` for the **Notebook instance type**, and enter `50` for **Volume Size in GB** leaving the other as defaults.
 
 ![Create Notebook Instance](./docs/assets/images/notebook-settings.png)
 
-5. For IAM role, choose **Create a new role**, (steps to come) will require sagemaker and glue trust permission and `AdministratorAccess` policy for access required services.
+5. For IAM role, choose **Create a new role**, (steps to come) will require `sagemaker.amazonaws.com` and `glue.amazonaws.com` trust permissions and `AdministratorAccess` policy for access required services.
 
 6. In the Git Repositories section clone this repo to be included in the notebook instance.
 
