@@ -147,7 +147,7 @@ SageMaker provides hosted Jupyter notebooks that require no setup, so you can be
 
 </p></details>
 
-#### 3. Accessing the Notebook Instance
+#### Accessing the Notebook Instance
 
 1. Wait for the server status to change to **InService**. This will take several minutes but likely less.
 
