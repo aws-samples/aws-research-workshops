@@ -37,7 +37,10 @@ For any workshop module that requires use of the AWS Command Line Interface (see
 
 ### IAM Role for Notebook Instance
 
-The Notebook Instance will require `sagemaker.amazonaws.com` and `glue.amazonaws.com` trust permissions and use the `AdministratorAccess` policy to access required services in the workshops. Create the IAM Role like below:
+A new IAM Role will be required for the workshops. The Notebook Instance requires `sagemaker.amazonaws.com` and `glue.amazonaws.com` trust permissions and the `AdministratorAccess` policy to access the required services in the workshops. Follow the instruction below to create the role in Python or use the `research-env.yml` file in CloudFormation to launch the notebook. 
+
+<details>
+<summary><strong>Python script instructions for creating the IAM Role (expand for details)</strong></summary><p>
 
 ``` python
 import logging
@@ -74,7 +77,7 @@ def get_role_arn(iam, role_name):
     """Gets the ARN of role"""
     response = iam.get_role(RoleName=role_name)
     return response['Role']['Arn']
-    
+
 iam = boto3.client('iam')
 
 role_doc = {
@@ -86,6 +89,7 @@ role_doc = {
                  "Service": [
                      "sagemaker.amazonaws.com",
                      "glue.amazonaws.com"
+                 ]
              }, 
              "Action": "sts:AssumeRole"
         }]
@@ -110,13 +114,14 @@ inline_policy = {
 role_arn = workshop.create_role(iam, firehose_role_name, json.dumps(role_doc), firehose_policy_name, json.dumps(inline_policy))
 print(role_arn)
 ```
-
-1. 
-
+</p></details>
 
 ## Launching Research Notebook Instance
 
 SageMaker provides hosted Jupyter notebooks that require no setup, so you can begin processing your training data sets immediately. With a few clicks in the SageMaker console, you can create a fully managed notebook instance, pre-loaded with useful libraries for machine learning.
+
+<details>
+<summary><strong>Step-by-step instructions (expand for details)</strong></summary><p>
 
 1. In the upper-right corner of the AWS Management Console, confirm you are in the desired AWS region. Select a Region with SageMaker support.
 
@@ -139,6 +144,8 @@ SageMaker provides hosted Jupyter notebooks that require no setup, so you can be
 ![Notebook Git](./docs/assets/images/notebook-git.png)
 
 7. Click **Create notebook instance**.
+
+</p></details>
 
 #### 3. Accessing the Notebook Instance
 
