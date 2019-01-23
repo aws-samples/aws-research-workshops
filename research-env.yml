@@ -1,0 +1,67 @@
+Description: " Creates resources (IAM role and SageMaker Notebook instance) for the Research Workshops"
+Parameters:
+  NotebookInstanceType:
+    Type: "String"
+    Default: ml.t2.medium
+    AllowedValues:
+      - ml.t2.medium
+      - ml.t2.large
+      - ml.t2.xlarge
+      - ml.t2.2xlarge
+      - ml.m4.xlarge
+      - ml.m4.2xlarge
+      - ml.p2.xlarge
+      - ml.p3.2xlarge
+    Description: Enter a valid SageMaker notebook instance type. Defaults to ml.t2.medium.
+
+  NotebookPrefix:
+    Type: String
+    Description: Prefix for the notebook instance
+    Default: Research
+
+Resources:
+  SageMakerResearchIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [
+                "sagemaker.amazonaws.com",
+                "glue.amazonaws.com"
+            ]
+            Action: "sts:AssumeRole"
+      Path: "/service-role/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
+
+  ResearchNotebookLifecycleConfig: 
+    Type: "AWS::SageMaker::NotebookInstanceLifecycleConfig"
+    Properties: 
+      OnStart: 
+        - Content:
+            Fn::Base64: !Sub |            
+              git clone https://github.com/aws-samples/aws-research-workshops ~/SageMaker/aws-research-workshops/
+              chown -R ec2-user /home/ec2-user/SageMaker/aws-research-workshops
+
+  SageMakerNotebookInstance:
+    Type: "AWS::SageMaker::NotebookInstance"
+    Properties:
+      NotebookInstanceName: !Sub ${NotebookPrefix}-Workshop-Notebook
+      InstanceType: !Ref NotebookInstanceType
+      RoleArn: !GetAtt SageMakerResearchIAMRole.Arn
+      LifecycleConfigName: !GetAtt ResearchNotebookLifecycleConfig.NotebookInstanceLifecycleConfigName
+
+Outputs:
+  SageMakerNotebookInstance:
+    Value: !GetAtt SageMakerNotebookInstance.NotebookInstanceName
+  
+  IAMRole:
+    Value: !GetAtt SageMakerResearchIAMRole.Arn
+
+  OpenInstanceLink:
+    Value: !Sub
+      - https://${NotebookInstanceName}.notebook.${AWS::Region}.sagemaker.aws/tree
+      - { NotebookInstanceName: !GetAtt SageMakerNotebookInstance.NotebookInstanceName }
