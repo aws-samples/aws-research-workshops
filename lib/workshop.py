@@ -164,7 +164,7 @@ def newest_image(list_of_images):
 
     return latest
 
-def create_role(iam, policy_name, assume_role_policy_document, inline_policy_name=None, policy_str=None):
+def create_role(iam, policy_name, assume_role_policy_document, inline_policy_name=None, policy_str=None, managed_policy=None):
     """Creates a new role if there is not already a role by that name"""
     if role_exists(iam, policy_name):
         logging.info('Role "%s" already exists. Assuming correct values.', policy_name)
@@ -176,6 +176,10 @@ def create_role(iam, policy_name, assume_role_policy_document, inline_policy_nam
         if policy_str is not None:
             iam.put_role_policy(RoleName=policy_name,
                             PolicyName=inline_policy_name, PolicyDocument=policy_str)
+        
+        if managed_policy is not None:
+            iam.attach_role_policy(RoleName=policy_name, PolicyArn=managed_policy)
+            
         logging.info('response for creating role = "%s"', response)
         return response['Role']['Arn']
 
