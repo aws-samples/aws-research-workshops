@@ -48,8 +48,7 @@ Resources:
         - !Ref SG
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
-        Fn::Base64: !Sub 
-                    - |
+        Fn::Base64: !Sub |
                       #!/bin/bash
                       sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
 
@@ -91,21 +90,22 @@ Resources:
                       pip install fire
                       pip install gg-group-setup
 
-                      mkdir -p /home/ec2-user/groups/tracker
-                      cd /home/ec2-user/groups/tracker
-                      aws s3 cp s3://${region}/device/tracker.zip .
+                      mkdir -p /health/groups/
+                      cd /health/groups/
+                      aws s3 cp s3://${S3BucketName}/device/tracker.zip .
                       unzip tracker.zip
-
+                      cd /health/groups/tracker/
+                      
                       chmod 755 cp_certs.sh start_tracker.sh stop_tracker.sh
 
                       ./cp_certs.sh
+                      
+                      cp gg_config /greengrass/config/config.json
+                      
+                      chown -R ec2-user:ec2-user /health/groups/tracker/*
+                      chmod 755 /health/groups/tracker/*.sh
 
-                      chown -R ec2-user:ec2-user /home/ec2-user/groups/tracker/*
-                      chmod 755 /home/ec2-user/groups/tracker/*.sh
-                      chmod 755 /home/ec2-user/hr/*.sh
-                      chmod 755 /home/ec2-user/bp/*.sh
-
-                      REGION=${region}
+                      REGION=${AWS::Region}
 
                       mkdir /home/ec2-user/.aws
                       echo '[default]' > /home/ec2-user/.aws/config
@@ -120,8 +120,6 @@ Resources:
                       chmod 400 /root/.aws/config
                       exit 0
                       sudo yum install -y mariadb.x86_64
-                    - { region: !Ref "AWS::Region" }
-                    - { bucket: !Ref S3BucketName }
       Tags:
         - Key: Name
           Value: GGDSessionManager
