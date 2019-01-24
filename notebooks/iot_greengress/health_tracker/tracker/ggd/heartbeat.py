@@ -40,7 +40,7 @@ from gg_group_setup import GroupConfigFile
 
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-heartbeat_topic = 'heart/beat'
+heartbeat_topic = '/heart/beat'
 
 log = logging.getLogger('heartbeat')
 handler = logging.StreamHandler()
