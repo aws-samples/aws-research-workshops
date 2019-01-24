@@ -1,1 +1,0 @@
-# Build Serverless Applications in Python with AWS SAM CLI
