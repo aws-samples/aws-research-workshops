@@ -14,8 +14,7 @@ import logging
 
 from random import *
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient, DROP_OLDEST
-from AWSIoTPythonSDK.core.greengrass.discovery.providers import \
-    DiscoveryInfoProvider
+from AWSIoTPythonSDK.core.greengrass.discovery.providers import DiscoveryInfoProvider
 import utils
 from gg_group_setup import GroupConfigFile
 
@@ -68,7 +67,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
         caPath=root_ca, certPath=certificate, keyPath=private_key
     )
     dip.configureTimeout(10)  # 10 sec
-    logging.info("[button] Discovery using CA:{0} cert:{1} prv_key:{2}".format(
+    logging.info("[heartrate] Discovery using CA:{0} cert:{1} prv_key:{2}".format(
         root_ca, certificate, private_key
     ))
 
@@ -76,7 +75,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
         device_name=device_name, dip=dip, config_file=config_file,
     )
     if not gg_core:
-        raise EnvironmentError("[button] Couldn't find the Core")
+        raise EnvironmentError("[heartrate] Couldn't find the Core")
 
     ca_list = discovery_info.getAllCas()
     group_id, ca = ca_list[0]
@@ -84,7 +83,7 @@ def core_connect(device_name, config_file, root_ca, certificate, private_key, gr
 
     mqttc = AWSIoTMQTTClient(ggd_name)
     # local Greengrass Core discovered, now connect to Core from this Device
-    log.info("[button] gca_file:{0} cert:{1}".format(
+    log.info("[heartrate] gca_file:{0} cert:{1}".format(
         group_ca_file, certificate))
     mqttc.configureCredentials(group_ca_file, private_key, certificate)
     mqttc.configureOfflinePublishQueueing(10, DROP_OLDEST)
@@ -108,7 +107,6 @@ if __name__ == '__main__':
                         help="File Path of GGD Private Key.")
     parser.add_argument('group_ca_path',
                         help="The directory path where the discovered Group CA will be saved.")
-    subparsers = parser.add_subparsers()
 
     pa = parser.parse_args()
 

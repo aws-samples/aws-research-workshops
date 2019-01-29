@@ -100,7 +100,7 @@ Resources:
 
                       ./cp_certs.sh
                       
-                      cp gg_config /greengrass/config/config.json
+                      cp /health/groups/tracker/gg_config.json /greengrass/config/config.json
                       
                       chown -R ec2-user:ec2-user /health/groups/tracker/*
                       chmod 755 /health/groups/tracker/*.sh
