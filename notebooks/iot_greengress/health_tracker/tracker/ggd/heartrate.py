@@ -35,25 +35,35 @@ mqttc = None
 ggd_name = None
 
 def heartrate(sensor_id):
-    now = datetime.datetime.now()
- 
-    val = randint(60, 100)
-    
-    msg = {
-        "version": "2017-07-05",  # YYYY-MM-DD
-        "ggd_id": ggd_name,
-        "hostname": hostname,
-        "data": [
-            {
-                "sensor_id": sensor_id,
-                "ts": now.isoformat(),
-                "value": val
-            }
-        ]
-    }
-    mqttc.publish(GGD_HR_TOPIC, json.dumps(msg), 0)
-    return msg
+    # MQTT client has connected to GG Core, start heartbeat messages
+    try:
+        start = datetime.datetime.now()
+        hostname = socket.gethostname()
+        while True:
+            now = datetime.datetime.now()
 
+            val = randint(60, 100)
+
+            msg = {
+                "version": "2017-07-05",  # YYYY-MM-DD
+                "ggd_id": ggd_name,
+                "hostname": hostname,
+                "data": [
+                    {
+                        "sensor_id": sensor_id,
+                        "ts": now.isoformat(),
+                        "value": val
+                    }
+                ]
+            }
+            print("[hb] publishing heartrate msg: {0}".format(msg))
+            mqttc.publish(GGD_HR_TOPIC, json.dumps(msg), 0)
+            time.sleep(random() * 10)
+
+    except KeyboardInterrupt:
+        log.info("[hb] KeyboardInterrupt ... exiting heartrate")
+    mqttc.disconnect()
+    time.sleep(2)
 
 def core_connect(device_name, config_file, root_ca, certificate, private_key, group_ca_path):
     global ggd_name, mqttc
@@ -118,8 +128,4 @@ if __name__ == '__main__':
     )
 
     if utils.mqtt_connect(mqtt_client=client, core_info=core):
-        pa.func(pa)
-
-    time.sleep(0.5)
-    mqttc.disconnect()
-    time.sleep(1)
+        heartrate('user1')

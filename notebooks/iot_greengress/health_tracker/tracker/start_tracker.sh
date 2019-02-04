@@ -2,10 +2,6 @@
 
 tracker_dir=$(pwd)
 
-cd ggd
-chmod 755 load_gg_profile.sh
-./load_gg_profile.sh
-
 cd ${tracker_dir}
 cd ..
 screen -S heartrate -h 200 -d -m python \

@@ -31,13 +31,13 @@ class TrackerGroupType(GroupType):
     """
     CORE_TYPE = 'tracker'
 
-    def __init__(self, config=None, region='us-west-2', hr_name='hr_ggd',
+    def __init__(self, config=None, region='us-west-2', heartrate_name='heartrate_ggd',
                  web_name='web_ggd', heartbeat_name='heartbeat_ggd',
                  tracker_brain_shadow='tracker_brain'):
         super(TrackerGroupType, self).__init__(
             type_name=TrackerGroupType.CORE_TYPE, config=config, region=region
         )
-        self.hr_ggd_name = hr_name
+        self.heartrate_ggd_name = heartrate_name
         self.web_ggd_name = web_name
         self.heartbeat_ggd_name = heartbeat_name
         self.tracker_brain_shadow = tracker_brain_shadow
@@ -72,10 +72,10 @@ class TrackerGroupType(GroupType):
         definition = [
             {
                 "Id": "{0}_12".format(self.type_name),
-                "ThingArn": cfg['devices'][self.hr_ggd_name]['thing_arn'],
-                "CertificateArn": cfg['devices'][self.hr_ggd_name][
+                "ThingArn": cfg['devices'][self.heartrate_ggd_name]['thing_arn'],
+                "CertificateArn": cfg['devices'][self.heartrate_ggd_name][
                     'cert_arn'],
-                "SyncShadow": cfg['devices'][self.hr_ggd_name]['cloud_sync']
+                "SyncShadow": cfg['devices'][self.heartrate_ggd_name]['cloud_sync']
             },
             {
                 "Id": "{0}_15".format(self.type_name),
@@ -152,7 +152,7 @@ class TrackerGroupType(GroupType):
             },
             {  # from Tracker heart rate device to TrackerBrain Lambda
                 "Id": "98",
-                "Source": d[self.hr_ggd_name]['thing_arn'],
+                "Source": d[self.heartrate_ggd_name]['thing_arn'],
                 "Subject": "hr",
                 "Target": l['TrackerBrain']['arn']
             }
