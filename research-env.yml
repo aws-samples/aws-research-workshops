@@ -14,11 +14,16 @@ Parameters:
       - ml.p3.2xlarge
     Description: Enter a valid SageMaker notebook instance type. Defaults to ml.t2.medium.
 
-  NotebookPrefix:
+  UserName:
     Type: String
-    Description: Prefix for the notebook instance
-    Default: Research
+    Description: Name of the Workshop User
+    Default: WorkshopUser
 
+  IAMUserPassword:
+    Description: IAM User Password used for the workshop user.
+    Type: String
+    NoEcho: True
+    
 Resources:
   SageMakerResearchIAMRole:
     Type: "AWS::IAM::Role"
@@ -42,18 +47,73 @@ Resources:
     Properties: 
       OnStart: 
         - Content:
-            Fn::Base64: !Sub |            
-              git clone https://github.com/aws-samples/aws-research-workshops ~/SageMaker/aws-research-workshops/
-              chown -R ec2-user /home/ec2-user/SageMaker/aws-research-workshops
+            Fn::Base64: !Sub |       
+                #!/bin/bash
+                set -e
+                sudo -i -u ec2-user bash << EOF
+                echo "Setup the Workshop exercises"
+                git clone https://github.com/aws-samples/aws-research-workshops ~/SageMaker/aws-research-workshops/
 
   SageMakerNotebookInstance:
     Type: "AWS::SageMaker::NotebookInstance"
     Properties:
-      NotebookInstanceName: !Sub ${NotebookPrefix}-Workshop-Notebook
+      NotebookInstanceName: !Sub ${UserName}-Workshop-Notebook
       InstanceType: !Ref NotebookInstanceType
       RoleArn: !GetAtt SageMakerResearchIAMRole.Arn
       LifecycleConfigName: !GetAtt ResearchNotebookLifecycleConfig.NotebookInstanceLifecycleConfigName
 
+  WorkshopUser:
+    Type: "AWS::IAM::User"
+    Properties: 
+      LoginProfile:
+        Password: !Ref IAMUserPassword
+      UserName: !Ref UserName
+      ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/ReadOnlyAccess
+          
+  WorkshopPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties: 
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+        - Sid: WorkshopAccess
+          Effect: Allow
+          Action: [        
+              'sagemaker:Start*',
+              'sagemaker:Stop*',
+              'sagemaker:CreatePresignedNotebookInstanceUrl'
+          ]
+          Resource: [
+              !Ref SageMakerNotebookInstance 
+          ]
+          Condition:
+              StringEquals:
+                aws:RequestedRegion: ${AWS::Region}
+        - Sid: WorkshopListAccess
+          Effect: Allow
+          Action: [        
+              'sagemaker:List*',
+              'sagemaker:Describe*'
+          ]
+          Resource: "*"
+          Condition:
+              StringEquals:
+                aws:RequestedRegion: ${AWS::Region}
+        - Sid: WorkshopBatchAccess
+          Effect: Allow
+          Action: [        
+              'batch:SubmitJob'
+          ]
+          Resource: "*"
+          Condition:
+              StringEquals:
+                aws:RequestedRegion: ${AWS::Region}
+      PolicyName: !Sub ${UserName}-WorkshopPolicy
+      Users:
+        - !Ref UserName
+    DependsOn: WorkshopUser 
+    
 Outputs:
   SageMakerNotebookInstance:
     Value: !GetAtt SageMakerNotebookInstance.NotebookInstanceName
