@@ -89,7 +89,7 @@ Resources:
           ]
           Condition:
               StringEquals:
-                aws:RequestedRegion: ${AWS::Region}
+                aws:RequestedRegion: !Sub ${AWS::Region}
         - Sid: WorkshopListAccess
           Effect: Allow
           Action: [        
@@ -99,7 +99,7 @@ Resources:
           Resource: "*"
           Condition:
               StringEquals:
-                aws:RequestedRegion: ${AWS::Region}
+                aws:RequestedRegion: !Sub ${AWS::Region}
         - Sid: WorkshopBatchAccess
           Effect: Allow
           Action: [        
@@ -108,7 +108,7 @@ Resources:
           Resource: "*"
           Condition:
               StringEquals:
-                aws:RequestedRegion: ${AWS::Region}
+                aws:RequestedRegion: !Sub ${AWS::Region}
       PolicyName: !Sub ${UserName}-WorkshopPolicy
       Users:
         - !Ref UserName
