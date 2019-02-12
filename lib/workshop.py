@@ -218,7 +218,7 @@ def create_bucket_name(bucket_prefix):
     return ''.join([bucket_prefix, str(uuid.uuid4())])
 
 def delete_bucket_completely(bucket_name):
-
+    """Remove all objects from S3 bucket and delete"""
     client = boto3.client('s3')
 
     response = client.list_objects_v2(
@@ -241,3 +241,20 @@ def delete_bucket_completely(bucket_name):
     response = client.delete_bucket(
         Bucket=bucket_name
     )
+    
+def create_db(glue_client, account_id, database_name, description):
+    """Create the specified Glue database if it does not exist"""
+    try:
+        glue_client.get_database(
+            CatalogId=account_id,
+            Name=database_name
+        )
+    except glue_client.exceptions.EntityNotFoundException:
+        print("Creating database: %s" % database_name)
+        glue_client.create_database(
+            CatalogId=account_id,
+            DatabaseInput={
+                'Name': database_name,
+                'Description': description
+            }
+        )

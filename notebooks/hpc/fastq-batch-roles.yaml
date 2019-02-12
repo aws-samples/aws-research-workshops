@@ -1,0 +1,97 @@
+Parameters:  
+  S3Bucket :
+    Type : String
+    Description: S3 Bucket to store results of batch process
+
+Resources:  
+  BatchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/CloudWatchFullAccess
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+
+  BatchTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 's3:GetObject'
+            Resource: arn:aws:s3:::1000genomes/*
+          - Effect: Allow
+            Action: 's3:*'
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+
+  BatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - batch.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+
+  BatchSpotFleetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - spotfleet.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
+Outputs:
+    BatchInstanceRole:
+        Value: !Ref BatchInstanceRole
+    BatchInstanceRoleArn:
+        Value: !GetAtt BatchInstanceRole.Arn
+    BatchTaskRole:
+        Value: !Ref BatchTaskRole
+    BatchTaskRoleArn:
+        Value: !GetAtt BatchTaskRole.Arn
+    BatchServiceRole:
+        Value: !Ref BatchServiceRole
+    BatchServiceRoleArn:
+        Value: !GetAtt BatchServiceRole.Arn
+    BatchSpotFleetRole:
+        Value: !Ref BatchSpotFleetRole
+    BatchSpotFleetRoleArn:
+        Value: !GetAtt BatchSpotFleetRole.Arn
