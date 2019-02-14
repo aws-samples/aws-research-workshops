@@ -1,0 +1,148 @@
+Description: >
+    This template deploys a single-node Redshift Cluster with the appropriate IAM Role and installs an EC2 instance with PGWeb.
+
+Parameters:
+  EnvironmentName:
+      Description: An environment name that will be prefixed to resource names
+      Type: String
+      Default: workshop
+  
+  AdministratorUser:
+    Type: String
+    AllowedPattern: "([a-z])([a-z]|[0-9])*"
+    NoEcho: true
+    ConstraintDescription : "must start with a-z and contain only a-z or 0-9."
+
+  AdministratorPassword:
+    Type: String
+    NoEcho: true
+    Description:  "Requires 1 Uppercase, 1 Lowercase, 1 Numeric, Minimum 8 characters"
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern : "[a-zA-Z0-9]*"
+    ConstraintDescription : "must contain only alphanumeric characters."
+    
+  DatabaseName:
+    Type: String
+    Default: taxi
+    
+  NodeType:
+    Description: The type of Redshift node to be provisioned
+    Type: String
+    Default: ds2.xlarge
+    AllowedValues:
+      - ds2.xlarge
+      - ds2.8xlarge
+      - dc2.large
+      - dc2.8xlarge
+      - dc1.large
+      - dc1.8xlarge
+
+  S3Bucket:
+    Type: String
+    Description: S3 Bucket for Delivery Stream to send Apache Logs
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Redshift Configuration"
+        Parameters:
+          - UserName
+          - Password
+          - DatabaseName
+          - NodeType
+      -
+        Label:
+          default: "Environment Configuration"
+        Parameters:
+          - EnvironmentName
+
+    ParameterLabels: 
+      AdministratorUser: 
+        default: "Redshift Administrator User"
+      AdministratorPassword: 
+        default: "Redshift Administrator Password"
+      EnvironmentName:
+        default: "Environment Name"
+          
+Resources:
+  RedshiftCluster:
+    Type: AWS::Redshift::Cluster
+    Properties:
+      ClusterType: single-node
+      NodeType: !Ref NodeType
+      DBName: !Ref DatabaseName
+      MasterUsername: !Ref AdministratorUser
+      MasterUserPassword: !Ref AdministratorPassword
+      PubliclyAccessible: true
+      VpcSecurityGroupIds:
+        - !GetAtt RedshiftSecurityGroup.GroupId
+      Port: 5439
+      IamRoles:
+        - !GetAtt RedshiftSpectrumRole.Arn
+
+  RedshiftSpectrumRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: redshift.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: spectrum-required-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:List*
+                  - athena:*
+                  - glue:*
+                Resource: '*'
+
+  RedshiftSecurityGroup:
+    Properties:
+      GroupDescription: This is the security group for Redshift
+      SecurityGroupIngress:
+        - FromPort: 5439
+          ToPort: 5439
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+    Type: AWS::EC2::SecurityGroup
+
+Outputs:
+  RedshiftAddress:
+    Value: !GetAtt RedshiftCluster.Endpoint.Address
+
+  RedshiftPort:
+    Value: !GetAtt RedshiftCluster.Endpoint.Port
+
+  RedshiftCluster:
+    Description: Redshift Connection
+    Value: !Join
+      - ''
+      - - '{'
+        - '"Connection": "'
+        - !Join
+          - ':'
+          - - !GetAtt RedshiftCluster.Endpoint.Address
+            - !GetAtt RedshiftCluster.Endpoint.Port
+        - '",'
+        - '"UserName": '
+        - !Ref AdministratorUser
+        - ','
+        - '"Password": "'
+        - !Ref AdministratorPassword
+        - '"'
+        - '}'
+
+  RedshiftSpectrumRole:
+    Description: Role used for Redshift Spectrum
+    Value: !Ref RedshiftSpectrumRole
