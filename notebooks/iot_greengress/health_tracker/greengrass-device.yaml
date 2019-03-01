@@ -82,6 +82,7 @@ Resources:
                       pip install boto3
                       pip install fire
                       pip install gg-group-setup
+                      pip install cachetools
 
                       mkdir -p /health/groups/
                       cd /health/groups/
@@ -96,7 +97,7 @@ Resources:
                       cp /health/groups/tracker/gg_config.json /greengrass/config/config.json
                       
                       chmod 755 /health/groups/tracker/*.sh
-
+                      chown -R ec2-user:ec2-user /health
                       exit 0
 
       Tags:

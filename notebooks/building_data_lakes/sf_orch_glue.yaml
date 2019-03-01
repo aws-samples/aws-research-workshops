@@ -1,0 +1,333 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: > 
+            This template builds the required resources for orchestrating processing data in your Data Lake with Step Functions. 
+
+Parameters:
+    NotificationEmail:
+        Type: String
+        Description: Email address to subscribe to failed Glue Job runs.
+
+Globals:
+    Function:
+        Runtime: python3.7
+        Timeout: 30
+        Tracing: Active
+        Tags:
+            Project: StepFunctionsAndGlueJobs
+
+Resources:
+    PollGlueJobStatusFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: GlueOrchestration - Get the status of the running Glue Job.
+            CodeUri: poller/
+            Handler: poll_crawler_status.handler
+            Role: !Sub ${LambdaGlueRole.Arn}
+
+    StartGlueCrawlerFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Description: GlueOrchestration - Start Glue Crawler
+            CodeUri: start_crawler/
+            Handler: start_crawler.handler
+            Role: !Sub ${LambdaGlueRole.Arn}
+
+    # https://docs.aws.amazon.com/step-functions/latest/dg/tutorial-api-gateway.html
+    StepFunctionsAPI:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: v1
+            DefinitionBody:
+                swagger: "2.0"
+                info:
+                    version: "1.0"
+                    title: "GlueOrchestration"
+                basePath: "/v1"
+                schemes:
+                - "https"
+                paths:
+                    /start:
+                        post:
+                            consumes:
+                            - "application/json"
+                            produces:
+                            - "application/json"
+                            responses:
+                                "200":
+                                    description: "200 response"
+                                    schema:
+                                        $ref: "#/definitions/Empty"
+                                    headers:
+                                        Access-Control-Allow-Origin:
+                                            type: "string"
+                            x-amazon-apigateway-integration:
+                                credentials: !GetAtt ApiGatewayStepFunctionsRole.Arn
+                                uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/StartExecution"
+                                responses:
+                                    default:
+                                        statusCode: "200"
+                                        responseParameters:
+                                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                                requestTemplates:
+                                    application/json: !Sub |
+                                        {
+                                        "input": "$util.escapeJavaScript($input.json('$'))",
+                                        "name": "$context.requestId",
+                                        "stateMachineArn": "${GlueOrchestrationStateMachine}"
+                                        }
+                                passthroughBehavior: "when_no_templates"
+                                httpMethod: "POST"
+                                type: "aws"
+                        options:
+                            consumes:
+                            - "application/json"
+                            produces:
+                            - "application/json"
+                            responses:
+                                "200":
+                                    description: "200 response"
+                                    schema:
+                                        $ref: "#/definitions/Empty"
+                                    headers:
+                                        Access-Control-Allow-Origin:
+                                            type: "string"
+                                        Access-Control-Allow-Methods:
+                                            type: "string"
+                                        Access-Control-Allow-Headers:
+                                            type: "string"
+                            x-amazon-apigateway-integration:
+                                responses:
+                                    default:
+                                        statusCode: "200"
+                                        responseParameters:
+                                            method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+                                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                                requestTemplates:
+                                    application/json: "{\"statusCode\": 200}"
+                                passthroughBehavior: "when_no_match"
+                                type: "mock"
+                definitions:
+                    Empty:
+                        type: "object"
+                        title: "Empty Schema"
+
+    GlueOrchestrationStateMachine:
+        Type: "AWS::StepFunctions::StateMachine"
+        Properties:
+            RoleArn: !GetAtt StepFunctionsServiceRole.Arn
+            DefinitionString: !Sub |-
+                  {
+                    "StartAt": "Glue StartJobRun",
+                    "States": {
+                      "Glue StartJobRun": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                        "Parameters": {
+                          "JobName.$": "$.job_name",
+                          "Arguments": {
+                              "--REGION.$": "$.arguments.region",
+                              "--TABLE_NAME.$": "$.arguments.table_name",
+                              "--S3_OUTPUT_BUCKET.$": "$.arguments.s3_output_bucket",
+                              "--S3_OUTPUT_KEY_PREFIX.$": "$.arguments.s3_output_key_prefix",
+                              "--DATABASE_NAME.$": "$.arguments.database_name"
+                          }
+                        },
+                        "InputPath": "$",
+                        "ResultPath": "$.status",
+                        "Next": "Start Crawler",
+                        "Catch": [
+                            {
+                              "ErrorEquals": [ "States.ALL" ],
+                              "Next": "Job Failure"
+                            }
+                        ]
+                      },
+                      "Start Crawler": {
+                        "Type": "Task",
+                        "Resource": "${StartGlueCrawlerFunction.Arn}",
+                        "InputPath": "$",
+                        "ResultPath": "$.crawler_status",                         
+                        "Next": "Wait Crawler X Seconds"
+                      },
+                      "Wait Crawler X Seconds": {
+                        "Type": "Wait",
+                        "InputPath": "$",
+                        "SecondsPath": "$.wait_time",
+                        "Next": "Get Crawler Status"
+                      },
+                      "Get Crawler Status": {
+                        "Type": "Task",
+                        "Resource": "${PollGlueJobStatusFunction.Arn}",
+                        "InputPath": "$",
+                        "Next": "Crawler Complete?"
+                      },
+                      "Crawler Complete?": {
+                        "Type": "Choice",
+                        "Choices": [
+                          {
+                            "Variable": "$.status",
+                            "StringEquals": "FAILED",
+                            "Next": "Job Failure"
+                          },
+                          {
+                            "Variable": "$.status",
+                            "StringEquals": "READY",
+                            "Next": "Crawler Complete"
+                          }
+                        ],
+                        "Default": "Wait Crawler X Seconds"
+                      },
+                      "Job Failure": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::sns:publish",
+                        "Parameters": {
+                          "Message": "Glue Orchestration Job failed",
+                          "TopicArn": "${SNSNotificationTopic}"
+                        },
+                        "End": true
+                      },
+                      "Crawler Complete": {
+                        "Type": "Succeed"
+                      }
+                    }
+                  }
+
+    ApiGatewayStepFunctionsRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: !Join ["", ["/", !Ref "AWS::StackName", "/"]]
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                -
+                    Sid: "AllowApiGatewayServiceToAssumeRole"
+                    Effect: "Allow"
+                    Action: 
+                    - "sts:AssumeRole"
+                    Principal:
+                        Service:
+                            - "apigateway.amazonaws.com"
+            Policies:
+                -   PolicyName: "CallStepFunctions"
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                        -
+                            Effect: "Allow"
+                            Action:
+                            - "states:StartExecution"
+                            Resource: 
+                            - !Sub ${GlueOrchestrationStateMachine}
+
+
+    StepFunctionsServiceRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: !Join ["", ["/", !Ref "AWS::StackName", "/"]]
+            ManagedPolicyArns:
+                - "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    -
+                        Sid: "AllowStepFunctionsServiceToAssumeRole"
+                        Effect: "Allow"
+                        Action: 
+                            - "sts:AssumeRole"
+                        Principal:
+                            Service:
+                                - !Sub "states.${AWS::Region}.amazonaws.com"
+            Policies:
+                -   PolicyName: "CallLambdaFunctions"
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                            -   Effect: "Allow"
+                                Action:
+                                    - "lambda:InvokeFunction"
+                                Resource: 
+                                    - !Sub ${StartGlueCrawlerFunction.Arn}
+                                    - !Sub ${PollGlueJobStatusFunction.Arn}
+                -   PolicyName: "GlueAccess"
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                            -   Effect: "Allow"
+                                Action:
+                                    - "glue:StartJobRun"
+                                    - "glue:GetJobRun"
+                                    - "glue:GetJobRuns"
+                                    - "glue:BatchStopJobRun"
+                                    - "glue:GetCrawler"
+                                    - "glue:StartCrawler"
+                                Resource: '*'
+                -  PolicyName: "AllowSNS"
+                   PolicyDocument:
+                       Version: '2012-10-17'
+                       Statement:
+                           - 
+                               Effect: "Allow"
+                               Action: 
+                               - 'sns:Publish'
+                               Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSNotificationTopic}"
+                  
+                                                         
+    LambdaGlueRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: !Join ["", ["/", !Ref "AWS::StackName", "/"]]
+            ManagedPolicyArns:
+                - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+                - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    -
+                        Sid: "AllowLambdaServiceToAssumeRole"
+                        Effect: "Allow"
+                        Action: 
+                            - "sts:AssumeRole"
+                        Principal:
+                            Service:
+                                - "lambda.amazonaws.com"
+            Policies:
+                -   PolicyName: "AllowGlueAccess"
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                            - 
+                                Effect: "Allow"
+                                Action:
+                                - 'glue:StartCrawler'
+                                - 'glue:GetCrawler'
+                                Resource: '*'
+
+    SNSNotificationTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+            Subscription:
+            - Endpoint: !Ref NotificationEmail
+              Protocol: email
+
+Outputs:
+    StepFunctionsAPIUrl:
+        Description: API URL
+        Value: !Sub "https://${StepFunctionsAPI}.execute-api.${AWS::Region}.amazonaws.com/v1/start"
+    
+    StepFunctionsStateMachine:
+        Description: Step Functions State Machine ARN
+        Value: !Ref GlueOrchestrationStateMachine
+    
+    PollGlueJobStatusFunctionArn:
+        Description: Poll Glue Job Status Function ARN
+        Value: !GetAtt PollGlueJobStatusFunction.Arn
+    
+    StartGlueCrawlerFunctionArn:
+        Description: Start Glue Crawler Function ARN
+        Value: !GetAtt StartGlueCrawlerFunction.Arn
+    
+    SNSNotificationTopicArn:
+        Description: Failed Glue Job Topic ARN
+        Value: !Ref SNSNotificationTopic
