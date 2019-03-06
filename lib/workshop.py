@@ -217,6 +217,15 @@ def create_bucket_name(bucket_prefix):
     # The generated bucket name must be between 3 and 63 chars long
     return ''.join([bucket_prefix, str(uuid.uuid4())])
 
+def create_bucket(region, session, bucket_prefix):
+    bucket = create_bucket_name(bucket_prefix)
+    
+    if region != 'us-east-1':
+        session.resource('s3').create_bucket(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': region})
+    else:
+        session.resource('s3').create_bucket(Bucket=bucket)
+    return bucket
+
 def delete_bucket_completely(bucket_name):
     """Remove all objects from S3 bucket and delete"""
     client = boto3.client('s3')
