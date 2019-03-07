@@ -52,15 +52,15 @@ Resources:
         CidrIp: 0.0.0.0/0
         
   SQLServerSelfReferencingRule:
-    Type: AWS::EC2::SecurityGroupIngress,
-    DependsOn: SQLServerSecurityGroup,
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: SQLServerSecurityGroup
     Properties:
-      GroupId": !Ref SQLServerSecurityGroup,
-      IpProtocol": 'tcp',
-      FromPort": '0',
-      ToPort": '65535',
-      SourceSecurityGroupId": !Ref SQLServerSecurityGroup
-          
+      GroupId: !Ref SQLServerSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: '0'
+      ToPort: '65535'
+      SourceSecurityGroupId: !Ref SQLServerSecurityGroup
+              
   SQLDatabase:
     Type: AWS::RDS::DBInstance
     Properties:
