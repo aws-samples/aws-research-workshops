@@ -55,11 +55,11 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     DependsOn: SQLServerSecurityGroup
     Properties:
-      GroupId: !Ref SQLServerSecurityGroup
+      GroupId: !GetAtt SQLServerSecurityGroup.GroupId
       IpProtocol: 'tcp'
       FromPort: '0'
       ToPort: '65535'
-      SourceSecurityGroupId: !Ref SQLServerSecurityGroup
+      SourceSecurityGroupId: !GetAtt SQLServerSecurityGroup.GroupId
               
   SQLDatabase:
     Type: AWS::RDS::DBInstance
