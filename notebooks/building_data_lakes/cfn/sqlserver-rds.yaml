@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates SQL Server RDS database.
+Parameters:
+  SqlServerInstanceName:
+    NoEcho: 'false'
+    Description: RDS SQL Server Instance Name
+    Type: String
+    Default: SqlRdsDB
+    MinLength: '1'
+    MaxLength: '63'
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+  DatabaseUsername:
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must contain only alphanumeric characters.
+    Description: The database admin account user name.
+    MaxLength: '16'
+    MinLength: '1'
+    Type: String
+  DatabasePassword:
+    AllowedPattern: "^(?=.*[0-9])(?=.*[a-zA-Z])([a-zA-Z0-9]+)"
+    ConstraintDescription: Must contain only alphanumeric characters with at least one capital letter and one number.
+    Description: The database admin account password.
+    MaxLength: '41'
+    MinLength: '8'
+    NoEcho: 'true'
+    Type: String
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: SQL Instance name, master username and password
+      Parameters:
+        - SqlServerInstanceName
+        - DatabaseUsername
+        - DatabasePassword
+      ParameterLabels:
+        SqlServerInstanceName:
+            default: Instance name
+        DatabaseUsername:
+            default: Master user name
+        DatabasePassword:
+            default: Password
+Resources:
+  SQLServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SQL Server Security Group
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '1433'
+        ToPort: '1433'
+        CidrIp: 0.0.0.0/0
+        
+  SQLServerSelfReferencingRule:
+    Type: AWS::EC2::SecurityGroupIngress,
+    DependsOn: SQLServerSecurityGroup,
+    Properties:
+      GroupId": !Ref SQLServerSecurityGroup,
+      IpProtocol": 'tcp',
+      FromPort": '0',
+      ToPort": '65535',
+      SourceSecurityGroupId": !Ref SQLServerSecurityGroup
+          
+  SQLDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      VPCSecurityGroups:
+      - Fn::GetAtt:
+        - SQLServerSecurityGroup
+        - GroupId
+      DBInstanceIdentifier:
+        Ref: SqlServerInstanceName
+      LicenseModel: license-included
+      Engine: sqlserver-se
+      EngineVersion: 14.00.3049.1.v1
+      MultiAZ: false
+      DBInstanceClass: db.m5.large
+      AllocatedStorage: '500'
+      MasterUsername:
+        Ref: DatabaseUsername
+      MasterUserPassword:
+        Ref: DatabasePassword
+      PubliclyAccessible: 'true'
+      BackupRetentionPeriod: '1'
+    DependsOn: SQLServerSecurityGroup
+Outputs:
+   SQLDatabaseEndpoint:
+     Description: Database endpoint
+     Value: !Sub "${SQLDatabase.Endpoint.Address}:${SQLDatabase.Endpoint.Port}"
