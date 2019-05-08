@@ -409,7 +409,7 @@ Resources:
               try:
                   response = urlopen(req)
                   response.read()
-                  logger.info("Message posted to %s", slack_message['channel'])
+                  logger.info("Message posted to Slack.")
               except HTTPError as e:
                   logger.error("Request failed: %d %s", e.code, e.reason)
               except URLError as e:
