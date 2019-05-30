@@ -49,3 +49,5 @@ notebooks/building_data_lakes/yelp_review_full_csv.tgz
 notebooks/building_data_lakes/yelp_review_full_csv/*
 notebooks/ml_tensorflow/data/*
 notebooks/serverless_apps/serverless-todo/*
+notebooks/spot/userdata.sh
+notebooks/hpc/Dockerfile
