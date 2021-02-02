@@ -52,5 +52,9 @@ notebooks/ml_tensorflow/data/*
 notebooks/serverless_apps/serverless-todo/*
 notebooks/spot/userdata.sh
 notebooks/hpc/Dockerfile
+notebooks/hpc/fastqc.sh
 notebooks/escience_series/*.csv
 notebooks/escience_series/*.tsv
+notebooks/parallelcluster/*.pem
+notebooks/parallelcluster/orszag-tang-*/*
+notebooks/parallelcluster/athena-public-version/*
