@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 #
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this
 # software and associated documentation files (the "Software"), to deal in the Software
@@ -27,9 +27,12 @@ import botocore.exceptions
 import uuid
 import sys
 import tarfile
+import json
+from botocore.exceptions import ClientError
 from six.moves import urllib
 
 from dateutil import parser
+
 
 def create_and_configure_vpc(tag='research-workshop'): 
     """Create VPC"""
@@ -204,7 +207,7 @@ def role_exists(iam, role_name):
     """Checks if the role exists already"""
     try:
         iam.get_role(RoleName=role_name)
-    except botocore.exceptions.ClientError:
+    except ClientError:
         return False
     return True
 
@@ -217,9 +220,12 @@ def create_bucket_name(bucket_prefix):
     # The generated bucket name must be between 3 and 63 chars long
     return ''.join([bucket_prefix, str(uuid.uuid4())])
 
-def create_bucket(region, session, bucket_prefix):
-    bucket = create_bucket_name(bucket_prefix)
-    
+def create_bucket(region, session, bucket_prefix, with_uuid=True):
+    if with_uuid:
+        bucket = create_bucket_name(bucket_prefix)
+    else:
+        bucket = bucket_prefix
+
     if region != 'us-east-1':
         session.resource('s3').create_bucket(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': region})
     else:
@@ -230,9 +236,16 @@ def delete_bucket_completely(bucket_name):
     """Remove all objects from S3 bucket and delete"""
     client = boto3.client('s3')
 
-    response = client.list_objects_v2(
-        Bucket=bucket_name,
-    )
+    try:
+        response = client.list_objects_v2(
+            Bucket=bucket_name,
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == "NoSuchBucket":
+            print("Bucket has already been deleted")
+            return
+    except: 
+        raise 
 
     while response['KeyCount'] > 0:
         print('Deleting %d objects from bucket %s' % (len(response['Contents']),bucket_name))
@@ -251,6 +264,19 @@ def delete_bucket_completely(bucket_name):
         Bucket=bucket_name
     )
     
+def delete_bucket_with_version(bucket_name):
+    bucket = boto3.resource('s3').Bucket(bucket_name)
+    try: 
+        for version in bucket.object_versions.all():
+            version.delete() 
+
+        bucket.delete()
+    except ClientError as e:
+        if e.response['Error']['Code'] == "NoSuchBucket":
+            print("Bucket has already been deleted")
+    except:
+        raise
+    
 def create_db(glue_client, account_id, database_name, description):
     """Create the specified Glue database if it does not exist"""
     try:
@@ -267,3 +293,132 @@ def create_db(glue_client, account_id, database_name, description):
                 'Description': description
             }
         )
+
+def create_keypair(region, session, key_name, save_path):
+    new_keypair = session.resource('ec2').create_key_pair(KeyName=key_name)
+    with open(save_path, 'w') as file:
+        file.write(new_keypair.key_material)
+    
+    print(new_keypair.key_fingerprint)
+    
+def create_simple_mysql_rds(region, session, db_name, subnet_ids, rds_secret_name):
+    ENGINE_NAME = 'mysql'
+    DB_INSTANCE_TYPE = 'db.m5.large'
+    DB_NAME = db_name
+    DB_USER_NAME = 'db_user'
+    DB_USER_PASSWORD = 'db_pass_'+str(uuid.uuid4())[0:10]
+    SUBNET_GROUP_NAME =  db_name + '-subnetgroup'
+    rds_client = boto3.client('rds')
+    ec2_client = boto3.client('ec2')
+    
+    # create a subnet group first
+    try:
+        subnet_group_response = rds_client.create_db_subnet_group(DBSubnetGroupName=SUBNET_GROUP_NAME, 
+                                                              DBSubnetGroupDescription='subnet group for the simple rds', 
+                                                              SubnetIds=subnet_ids)
+    except ClientError as e:  
+        if e.response['Error']['Code'] == "DBSubnetGroupAlreadyExists":
+            print("SubnetGroup Already exist, ignore")
+        else:
+            print(e)
+    
+    try: 
+        create_db_instance_response = rds_client.create_db_instance(DBInstanceIdentifier=DB_NAME,
+                                                                DBInstanceClass=DB_INSTANCE_TYPE,
+                                                                DBName=DB_NAME,
+                                                                Engine=ENGINE_NAME,
+                                                                AllocatedStorage=10,
+                                                                MasterUsername=DB_USER_NAME,
+                                                                MasterUserPassword=DB_USER_PASSWORD,
+                                                                DBSubnetGroupName=SUBNET_GROUP_NAME,
+                                                                PubliclyAccessible=True)
+    except ClientError as e:
+        if e.response['Error']['Code'] == "DBInstanceAlreadyExists":
+            print("DB instance with the same id already exists. You can either use the same instance or pick a new id")
+    except: 
+        print("Failed to create the db")
+        raise        
+    else:
+        print("Successfully create DB instance %s" % DB_NAME)
+        create_rds_secret(region, session, rds_secret_name, DB_NAME,'', '3306', DB_USER_NAME, DB_USER_PASSWORD)
+        
+def create_rds_secret(region, session, secret_name, rds_id, host, port, username, password): 
+    sm_client = session.client('secretsmanager', region_name=region)
+    data = {"username": username, "password": password, "engine": 'mysql', "host": host, "port": port, 'dbInstanceIdentifier': rds_id}
+    try:
+        sm_client.create_secret(Name=secret_name, SecretString=json.dumps(data))
+    except ClientError as e:
+        if e.response['Error']['Code'] == "ResourceExistsException":
+            print("secret exists, update instead")
+            sm_client.update_secret(SecretId=secret_name, SecretString=json.dumps(data))
+    except:
+        raise
+
+def update_rds_secret_with_hostname(region, session, secret_name, hostname):
+    sm_client = session.client('secretsmanager', region_name=region)
+    try:
+        data = sm_client.get_secret_value(SecretId=secret_name)
+        secret = json.loads(data['SecretString'])
+        secret['host'] = hostname
+        sm_client.update_secret(SecretId=secret_name, SecretString=json.dumps(secret))
+    except:
+        raise
+    
+def get_sgs_and_update_secret(region, session, rds_id, rds_secret_name):
+    rds_client = session.client('rds', region)
+    try:
+        resp = rds_client.describe_db_instances(DBInstanceIdentifier=rds_id)
+        hostname=resp['DBInstances'][0]['Endpoint']['Address']
+        update_rds_secret_with_hostname(region,session, rds_secret_name, hostname)
+        return resp['DBInstances'][0]['VpcSecurityGroups'] 
+    except:
+        raise
+
+def update_security_group(sg_id, cidr, port):
+    ec2 = boto3.resource('ec2')
+    sg = ec2.SecurityGroup(sg_id)
+    
+    ip_permissions = list()
+    p = {}
+    rgs = {}
+    p['IpProtocol'] = 'tcp'
+    p['IpRanges'] = list ()
+    rgs['CidrIp'] = cidr
+    rgs['Description'] = 'Auto added by notebook'
+    p['IpRanges'].append(rgs)
+    p['Ipv6Ranges'] = list()
+    p['PrefixListIds'] = list()
+    p['ToPort'] = port
+    p['FromPort'] = port
+    p['UserIdGroupPairs'] = list()
+    ip_permissions.append(p)
+
+    try: 
+        resp = sg.authorize_ingress(IpPermissions = ip_permissions)
+        print(resp)
+    except ClientError as e:
+        if e.response['Error']['Code'] == "InvalidPermission.Duplicate":
+            print("Ingress rule already exists, ignore")
+        else:
+            print("Something else faile ... ")
+            print(e)
+            
+def detele_rds_instance(region, session, rds_id):
+    rds_client = session.client('rds', region)
+    try:
+        resp = rds_client.delete_db_instance(DBInstanceIdentifier=rds_id, SkipFinalSnapshot=True, DeleteAutomatedBackups=True)
+        print(resp)
+    except ClientError as e:
+        if e.response['Error']['Code'] == "InvalidDBInstanceState":
+            print("DB might have been deleted already")
+    except:
+        raise
+
+def delete_secrets_with_force(region, session, secret_names): 
+    sm_client = session.client('secretsmanager', region)
+    for s in secret_names:
+        try:
+            resp = sm_client.delete_secret(SecretId=s, ForceDeleteWithoutRecovery=True)
+        except:
+            raise
+            

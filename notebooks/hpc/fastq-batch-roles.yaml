@@ -62,22 +62,23 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
 
-  BatchSpotFleetRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: '/'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - spotfleet.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
+# This no longer works, as the ManagedPolicies don't exist anymore. 
+#  BatchSpotFleetRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      Path: '/'
+#      AssumeRolePolicyDocument:
+#        Version: '2012-10-17'
+#        Statement:
+#        - Effect: Allow
+#          Principal:
+#            Service:
+#            - spotfleet.amazonaws.com
+#          Action:
+#          - sts:AssumeRole
+#      ManagedPolicyArns:
+#      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+#      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
 Outputs:
     BatchInstanceRole:
         Value: !Ref BatchInstanceRole
@@ -91,7 +92,7 @@ Outputs:
         Value: !Ref BatchServiceRole
     BatchServiceRoleArn:
         Value: !GetAtt BatchServiceRole.Arn
-    BatchSpotFleetRole:
-        Value: !Ref BatchSpotFleetRole
-    BatchSpotFleetRoleArn:
-        Value: !GetAtt BatchSpotFleetRole.Arn
+#    BatchSpotFleetRole:
+#        Value: !Ref BatchSpotFleetRole
+#    BatchSpotFleetRoleArn:
+#        Value: !GetAtt BatchSpotFleetRole.Arn

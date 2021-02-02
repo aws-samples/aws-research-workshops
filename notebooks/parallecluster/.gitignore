@@ -1,0 +1,6 @@
+notebooks/.ipynb_checkpoints/*
+build/*
+notebooks/slurm_rest_api_client/*
+tmp/*
+athena-public-version/*
+__pycache__/*
