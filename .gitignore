@@ -57,4 +57,5 @@ notebooks/escience_series/*.csv
 notebooks/escience_series/*.tsv
 notebooks/parallelcluster/*.pem
 notebooks/parallelcluster/orszag-tang-*/*
+notebooks/parallelcluster/athena-public-version
 notebooks/parallelcluster/athena-public-version/*
