@@ -339,7 +339,7 @@ def create_simple_mysql_rds(region, session, db_name, subnet_ids, rds_secret_nam
         print("Failed to create the db")
         raise        
     else:
-        print("Successfully create DB instance %s" % DB_NAME)
+        print("Successfully created DB instance %s" % DB_NAME)
         create_rds_secret(region, session, rds_secret_name, DB_NAME,'', '3306', DB_USER_NAME, DB_USER_PASSWORD)
         
 def create_rds_secret(region, session, secret_name, rds_id, host, port, username, password): 

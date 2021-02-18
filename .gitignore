@@ -55,8 +55,8 @@ notebooks/hpc/Dockerfile
 notebooks/hpc/fastqc.sh
 notebooks/escience_series/*.csv
 notebooks/escience_series/*.tsv
-notebooks/parallelcluster/*.pem
-notebooks/parallelcluster/orszag-tang-*/*
+notebooks/parallelcluster/orszag-tang-lowres/*
 notebooks/parallelcluster/athena-public-version
 notebooks/parallelcluster/athena-public-version/*
-*/Untitled.ipynb
+**/Untitled.ipynb
+**/*.pem
