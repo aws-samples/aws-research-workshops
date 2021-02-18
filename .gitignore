@@ -59,3 +59,4 @@ notebooks/parallelcluster/*.pem
 notebooks/parallelcluster/orszag-tang-*/*
 notebooks/parallelcluster/athena-public-version
 notebooks/parallelcluster/athena-public-version/*
+*/Untitled.ipynb
