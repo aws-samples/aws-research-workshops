@@ -33,7 +33,6 @@ from six.moves import urllib
 
 from dateutil import parser
 
-
 def create_and_configure_vpc(tag='research-workshop'): 
     """Create VPC"""
     ec2 = boto3.resource('ec2')
@@ -422,3 +421,414 @@ def delete_secrets_with_force(region, session, secret_names):
         except:
             raise
             
+def create_simple_compute_environment(proj_name): 
+    computeEnvironmentName = f"CE-{proj_name}"
+    
+    iam_client = boto3.client('iam')
+    ec2_client = boto3.client('ec2')
+    batch_client = boto3.client('batch')
+    
+    # use the default VPC for simplicity
+    vpc_filter = [{'Name':'isDefault', 'Values':['true']}]
+    default_vpc = ec2_client.describe_vpcs(Filters=vpc_filter)
+    vpc_id = default_vpc['Vpcs'][0]['VpcId']
+
+    subnet_filter = [{'Name':'vpc-id', 'Values':[vpc_id]}]
+    subnets = ec2_client.describe_subnets(Filters=subnet_filter)
+    subnet1_id = subnets['Subnets'][0]['SubnetId']
+    subnet2_id = subnets['Subnets'][1]['SubnetId']
+
+
+    batch_instance_role_name = f"batch_instance_role_{proj_name}"
+    batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess"]
+    create_service_role_with_policies(batch_instance_role_name, "ec2.amazonaws.com", batch_instance_policies)
+    instance_profile_name =f"instance_profile_{proj_name}"
+    try:
+        iam_client.create_instance_profile(InstanceProfileName=instance_profile_name)
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'EntityAlreadyExists':
+            print("Instance profile already attached, ignore")
+        else:
+            raise e
+    try:
+        iam_client.add_role_to_instance_profile(InstanceProfileName=instance_profile_name, RoleName=batch_instance_role_name)
+    except ClientError as e:
+        print(e)
+        
+    instanceRole = iam_client.get_instance_profile(InstanceProfileName=f"instance_profile_{proj_name}")['InstanceProfile']['Arn']
+    
+    batch_service_role_name = f"batch_service_role_{proj_name}"
+    batch_service_policies = ["arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole", "arn:aws:iam::aws:policy/CloudWatchFullAccess"]
+    serviceRole = create_service_role_with_policies(batch_service_role_name, "batch.amazonaws.com", batch_service_policies)
+
+    batch_sg_name = f"batch_sg_{proj_name}"
+    try:
+        sg = ec2_client.create_security_group(
+            Description='security group for Compute Environment',
+            GroupName=batch_sg_name,
+            VpcId=vpc_id
+        )
+        batch_sec_group_id=sg["GroupId"]
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'InvalidGroup.Duplicate':
+            print("SG already exists, ")
+            resp = ec2_client.describe_security_groups(Filters=[dict(Name='group-name', Values=[batch_sg_name])])
+            batch_sec_group_id = resp['SecurityGroups'][0]['GroupId']
+
+    print('Batch security group id - ' + batch_sg_name)
+    print(batch_sec_group_id)
+
+    security_groups = [batch_sec_group_id]
+    
+    compute_resources = {
+        'type': 'EC2',
+        'allocationStrategy': 'BEST_FIT_PROGRESSIVE',
+        'minvCpus': 4,
+        'maxvCpus': 64,
+        'desiredvCpus': 4,
+        'instanceTypes': ['optimal'],
+        'subnets': [subnet1_id,  subnet2_id],
+        'securityGroupIds': security_groups,
+        'instanceRole': instanceRole
+    }
+        
+    response = batch_client.create_compute_environment(
+        computeEnvironmentName=computeEnvironmentName,
+        type='MANAGED',
+        serviceRole=serviceRole,
+        computeResources=compute_resources
+    )
+
+    while True:
+        describe = batch_client.describe_compute_environments(computeEnvironments=[computeEnvironmentName])
+        computeEnvironment = describe['computeEnvironments'][0]
+        status = computeEnvironment['status']
+        if status == 'VALID':
+            print('\rSuccessfully created compute environment {}'.format(computeEnvironmentName))
+            break
+        elif status == 'INVALID':
+            reason = computeEnvironment['statusReason']
+            raise Exception('Failed to create compute environment: {}'.format(reason))
+        print('\rCreating compute environment...')
+        time.sleep(10)
+            
+    return response            
+            
+def delete_simple_compute_environment(proj_name):
+    computeEnvironment = f"CE-{proj_name}"
+    iam_client = boto3.client('iam')
+    batch_client = boto3.client('batch')
+    ec2_client = boto3.client('ec2')
+        
+    try:
+        response = batch_client.update_compute_environment(
+            computeEnvironment=computeEnvironment,
+            state='DISABLED',
+        )
+    
+        while True:
+            response = batch_client.describe_compute_environments(
+                computeEnvironments=[computeEnvironment])
+            assert len(response['computeEnvironments']) == 1
+            env = response['computeEnvironments'][0]
+            state = env['state']
+            status = env['status']
+            if status == 'UPDATING':
+                print("Environment %r is updating, waiting..." % (computeEnvironment,))
+
+            elif state == 'DISABLED':
+                break
+
+            else:
+                raise RuntimeError('Expected status=UPDATING or state=DISABLED, '
+                                   'but status=%r and state=%r' % (status, state))
+
+            # wait a little bit before checking again.
+            time.sleep(15)
+
+        ce_response = batch_client.delete_compute_environment(
+            computeEnvironment=computeEnvironment
+        )
+
+        time.sleep(5)
+        response = describe_compute_environments([computeEnvironment])
+
+        while response['computeEnvironments'][0]['status'] == 'DELETING':
+            time.sleep(5)
+            response = describe_compute_environments([computeEnvironment])
+            if len(response['computeEnvironments']) != 1:
+                break
+    except:
+        print("CE may not exist, ignore")
+        
+    # only delete those if the CE is deleted
+    response = describe_compute_environments([computeEnvironment])
+    if len(response['computeEnvironments']) != 1:
+        # clean up the other resouces created 
+        batch_instance_role_name = f"batch_instance_role_{proj_name}"
+        instance_profile_name =f"instance_profile_{proj_name}"
+        batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess"]
+
+        try:
+            iam_client.remove_role_from_instance_profile(InstanceProfileName=instance_profile_name, RoleName=batch_instance_role_name)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchEntity':
+                print("Ignore profile removal")
+
+        delete_service_role_with_policies(batch_instance_role_name,  batch_instance_policies)
+        iam_client.delete_instance_profile(InstanceProfileName=instance_profile_name)
+
+
+
+        batch_service_role_name = f"batch_service_role_{proj_name}"
+        batch_service_policies = ["arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole", "arn:aws:iam::aws:policy/CloudWatchFullAccess"]
+        delete_service_role_with_policies(batch_service_role_name, batch_service_policies)
+
+        batch_sg_name = f"batch_sg_{proj_name}"
+
+        try: 
+            ec2_client.delete_security_group(GroupName=batch_sg_name)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidGroup.NotFound':
+                print("SG doesn't exist, ignore")
+
+            
+    print("CE delete completed")
+
+
+def describe_compute_environments(compute_envs):
+    batch = boto3.client('batch')
+
+    try:
+        response = batch.describe_compute_environments(
+            computeEnvironments=compute_envs,
+        )
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+        raise
+
+    return response
+
+def create_job_queue(computeEnvironmentName, priority):
+    batch = boto3.client('batch')
+    jobQueueName = computeEnvironmentName + '_queue'
+    try:
+        response = batch.create_job_queue(jobQueueName=jobQueueName,
+                                      priority=priority,
+                                      computeEnvironmentOrder=[
+                                          {
+                                              'order': priority,
+                                              'computeEnvironment': computeEnvironmentName
+                                          }
+                                      ])
+    except ClientError as e:
+        if e.response['Error']['Message'] =='Object already exists':
+            print("Job queue already exists, ignore")
+
+    while True:
+        describe = batch.describe_job_queues(jobQueues=[jobQueueName])
+        jobQueue = describe['jobQueues'][0]
+        status = jobQueue['status']
+        if status == 'VALID':
+            print('\rSuccessfully created job queue {}'.format(jobQueueName))
+            return jobQueue['jobQueueName'], jobQueue['jobQueueArn']
+        elif status == 'INVALID':
+            reason = jobQueue['statusReason']
+            raise Exception('Failed to create job queue: {}'.format(reason))
+        print('\rCreating job queue... ')
+        time.sleep(5)
+
+
+def delete_job_queue(job_queue):
+    batch = boto3.client('batch')
+    job_queues = [job_queue]
+    response = describe_job_queues(job_queues)
+    
+    try:        
+        if response['jobQueues'][0]['state'] != 'DISABLED':
+            try:
+                batch.update_job_queue(
+                    jobQueue=job_queue,
+                    state='DISABLED'
+                )
+            except ClientError as e:
+                print(e.response['Error']['Message'])
+                raise
+
+        terminate_jobs(job_queue)
+
+        # Wait until job queue is DISABLED
+        response = describe_job_queues(job_queues)
+        while response['jobQueues'][0]['state'] != 'DISABLED':
+            time.sleep(5)
+            response = describe_job_queues(job_queues)
+
+        time.sleep(10)
+        if response['jobQueues'][0]['status'] != 'DELETING':
+            try:
+                batch.delete_job_queue(
+                    jobQueue=job_queue,
+                )
+            except ClientError as e:
+                print(e.response['Error']['Message'])
+                raise
+
+        response = describe_job_queues(job_queues)
+
+        while response['jobQueues'][0]['status'] == 'DELETING':
+            time.sleep(5)
+            response = describe_job_queues(job_queues)
+
+            if len(response['jobQueues']) != 1:
+                break
+    except:
+        print("Job queue doesn't exist, skip")
+
+def describe_job_queues(job_queues):
+    batch = boto3.client('batch')
+    try:
+        response = batch.describe_job_queues(
+            jobQueues=job_queues
+        )
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+        raise
+
+    return response
+
+
+def delete_job_definition(job_def):
+    batch = boto3.client('batch')
+    try:
+        response = batch.deregister_job_definition(
+            jobDefinition=job_def
+        )
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+        raise
+
+    return response
+
+
+def terminate_jobs(job_queue):
+    batch = boto3.client('batch')
+    response = list_jobs(job_queue)
+    for job in response['jobSummaryList']:
+        batch.terminate_job(
+            jobId =job['jobId'],
+            reason='Removing Batch Environment'
+        )
+    while response.get('nextToken', None) is not None:
+        response = list_jobs(job_queue, response['nextToken'])
+        for job in response['jobSummaryList']:
+            batch.terminate_job(
+                jobId =job['jobId'],
+                reason='Removing Batch Environment'
+            )
+
+
+def list_jobs(job_queue, next_token=""):
+    batch = boto3.client('batch')
+    try:
+        if next_token:
+            response = batch.list_jobs(
+                jobQueue=job_queue,
+                nextToken=next_token
+            )
+        else:
+            response = batch.list_jobs(
+                jobQueue=job_queue,
+            )
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+        raise
+
+    return response
+
+def create_service_role_with_policies(role_name, service_name, policy_arns):
+    iam_client = boto3.client('iam')
+    try:
+        resp = iam_client.create_role(RoleName=role_name,
+                                 AssumeRolePolicyDocument='{"Version":"2012-10-17","Statement":[{"Sid":"","Effect":"Allow","Principal":{"Service": "' + service_name+'"},"Action":"sts:AssumeRole"}]}')
+        for policy in policy_arns:
+            resp = iam_client.attach_role_policy(PolicyArn=policy,RoleName=role_name)
+    except ClientError  as e:
+        if e.response['Error']['Code'] == 'EntityAlreadyExists':
+            print(f"{role_name} already exists, ignore")
+        else: 
+            raise  e
+    
+    resp = iam_client.get_role(RoleName=role_name)
+    return resp['Role']['Arn']
+
+def delete_service_role_with_policies(role_name, policy_arns):
+    iam_client = boto3.client('iam')
+    try:
+        for policy in policy_arns:
+            try: 
+                resp = iam_client.detach_role_policy(PolicyArn=policy,RoleName=role_name)
+            except ClientError as ee:
+               if ee.response['Error']['Code'] == 'NoSuchEntity':
+                   print("Policy not attached, ignore")
+                    
+        resp = iam_client.delete_role(RoleName=role_name)
+        print(f"deleted service role {role_name}")
+    except ClientError  as e:
+        if e.response['Error']['Code'] == 'NoSuchEntity':
+            print(f"{role_name} already deleted, ignore")
+        else: 
+            raise  e
+
+def create_job_definition(proj_name, image_uri, batch_task_role_arn):
+    batch_client = boto3.client('batch')
+    job_def_name = f"JD-{proj_name}"
+    
+    job_def = batch_client.register_job_definition(
+        jobDefinitionName=job_def_name,
+        type='container',
+        containerProperties={
+            'image': image_uri,
+            'vcpus': 2,
+            'memory': 1024,
+            'jobRoleArn': batch_task_role_arn,
+            'logConfiguration': {
+                'logDriver': 'awslogs'                
+            }
+        }
+        
+    )
+
+    return job_def
+
+def delete_codecommit_repo(proj_name):
+    codecommit_client = boto3.client('codecommit')
+    try:
+        resp = codecommit_client.delete_repository(repositoryName=proj_name)
+        print(f"Deleted codecommit repo {proj_name}")
+    except ClientError as e:
+        print(e)
+                                                   
+def delete_ecr_repo(proj_name):
+    ecr = boto3.client('ecr')
+    try:
+        resp = ecr.delete_repository(repositoryName=proj_name, force=True)
+        print(f"Deleted ecr repo {proj_name}")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'RepositoryNotFoundException': 
+            print("ECR repo doesn't exist, skip")
+                                                   
+ 
+# use None for parent_commit_id if new
+def commit_files(proj_name, branch_name, put_files, parent_commit_id):
+    codecommit_client = boto3.client('codecommit')
+    if parent_commit_id:
+        resp = codecommit_client.create_commit(repositoryName=proj_name, branchName=branch_name, 
+                                               parentCommitId=parent_commit_id,
+                                               putFiles=put_files)
+    else:
+        resp = codecommit_client.create_commit(repositoryName=proj_name, branchName=branch_name, 
+                                               putFiles=put_files)
+        
+    print("Finished commit")
+    
+                                                   
