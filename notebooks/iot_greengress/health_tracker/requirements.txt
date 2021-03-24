@@ -36,7 +36,7 @@ python-dateutil==2.6.1
 PyYAML
 requests
 retrying==1.3.3
-rsa==3.4.2
+rsa==4.1
 s3transfer==0.1.11
 scandir
 simplegeneric==0.8.1
