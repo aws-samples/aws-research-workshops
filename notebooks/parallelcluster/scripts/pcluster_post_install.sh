@@ -82,7 +82,9 @@ make
 # Update slurm, with slurmrestd
 #####
 # Python3 is requred to build slurm >= 20.02, 
-source /opt/parallelcluster/pyenv/versions/3.6.9/envs/cookbook_virtualenv/bin/activate
+
+#source /opt/parallelcluster/pyenv/versions/3.6.9/envs/cookbook_virtualenv/bin/activate
+source /opt/parallelcluster/pyenv/versions/cookbook_virtualenv/bin/activate
 
 cd /shared
 # have to use the exact same slurm version as in the released version of ParallelCluster2.10.1

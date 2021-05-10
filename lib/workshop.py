@@ -17,6 +17,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+# Developers' notes: 
+# All the functions in this file are written for this specific workshop only. You can use them as references,
+# but please don't use them for production. There are lots of "convention over configuration" short-cuts to simplify the 
+# workshop.
+
+
 import logging
 import os
 import time

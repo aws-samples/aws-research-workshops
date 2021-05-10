@@ -55,11 +55,12 @@ notebooks/hpc/Dockerfile
 notebooks/hpc/fastqc.sh
 notebooks/escience_series/*.csv
 notebooks/escience_series/*.tsv
-notebooks/parallelcluster/orszag-tang-lowres/*
+notebooks/parallelcluster/orszag-tang-*/*
 notebooks/parallelcluster/athena-public-version
 notebooks/parallelcluster/athena-public-version/*
 **/Untitled.ipynb
 **/*.pem
+**/*.pem*
 notebooks/container/sratest.sh
 notebooks/container/buildspec.yml
 
