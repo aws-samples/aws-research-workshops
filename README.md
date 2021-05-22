@@ -12,7 +12,7 @@ To get the AWS Research Workshop Notebook up and running in your own AWS account
 [![Launch Stack](https://cdn.rawgit.com/buildkite/cloudformation-launch-stack-button-svg/master/launch-stack.svg)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ResearchWorkshopNotebook)
 3. Continue through the CloudFormation wizard steps
     1. Name your stack, i.e. ResearchWorkshopNotebook
-    2. Use research-env.yml as the template file
+    2. Select "Upload a template file" and use research-env.yml as the template file
     3. After reviewing, check the blue box for creating IAM resources.
 4. Choose **Create stack**.  This will take ~20 minutes to complete.
 5. The output of the CloudFormation stack creation will provide a Notebook URL (in the *Outputs* section of your stack details 
