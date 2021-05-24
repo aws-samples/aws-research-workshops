@@ -87,10 +87,12 @@ make
 source /opt/parallelcluster/pyenv/versions/cookbook_virtualenv/bin/activate
 
 cd /shared
-# have to use the exact same slurm version as in the released version of ParallelCluster2.10.1
-wget https://download.schedmd.com/slurm/slurm-20.02.4.tar.bz2
-tar xjf slurm-20.02.4.tar.bz2
-cd slurm-20.02.4
+# have to use the exact same slurm version as in the released version of ParallelCluster2.10.1 - 20.02.4
+# as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
+# error could be seen in the cfn-init.log file
+wget https://download.schedmd.com/slurm/slurm-20.02.7.tar.bz2
+tar xjf slurm-20.02.7.tar.bz2
+cd slurm-20.02.7
 
 # config and build slurm
 ./configure --prefix=/opt/slurm --with-pmix=/opt/pmix
@@ -99,8 +101,6 @@ make -j $CORES
 make install
 make install-contrib
 deactivate
-
-
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
@@ -167,8 +167,6 @@ EOF
 
 # 
 /opt/slurm/sbin/slurmdbd
-# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
-systemctl restart slurmctld
 
 #####
 # Enable slurmrestd to run as a service
@@ -216,11 +214,11 @@ chmod +x /shared/token_refresher.sh
 
 # add a cron job to run the token refresher every 20 mins
 cat >/etc/cron.d/slurm-token<<EOF
-# Run the slurm token update every 20 minues 
+# Run the slurm token update every minue 
 SHELL=/bin/bash
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 MAILTO=root
-*/20 * * * * root /shared/token_refresher.sh 
+* * * * * root /shared/token_refresher.sh 
 EOF
 
 #####
@@ -251,6 +249,13 @@ sbatch \$4
 EOF
 
 chmod +x /shared/tmp/fetch_and_run.sh
+
+# create the slurm token - the role doesn't have permission to create secret - this doesn't work
+#/shared/token_refresher.sh || true
+
+# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
+systemctl restart slurmctld
+
 
 
 
