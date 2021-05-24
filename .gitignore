@@ -63,4 +63,4 @@ notebooks/parallelcluster/athena-public-version/*
 **/*.pem*
 notebooks/container/sratest.sh
 notebooks/container/buildspec.yml
-
+notebooks/parallelcluster/*.csv
