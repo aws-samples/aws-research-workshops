@@ -192,6 +192,10 @@ EOF
 systemctl daemon-reload
 systemctl start slurmrestd
 
+# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
+systemctl restart slurmctld
+
+
 ## initialize the sacctmgr - this is done automatically by slurmdbd
 ##/opt/slurm/bin/sacctmgr add cluster parallelcluster
 
@@ -214,11 +218,11 @@ chmod +x /shared/token_refresher.sh
 
 # add a cron job to run the token refresher every 20 mins
 cat >/etc/cron.d/slurm-token<<EOF
-# Run the slurm token update every minue 
+# Run the slurm token update every 20 minue 
 SHELL=/bin/bash
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 MAILTO=root
-* * * * * root /shared/token_refresher.sh 
+*/20 * * * * root /shared/token_refresher.sh 
 EOF
 
 #####
@@ -250,12 +254,9 @@ EOF
 
 chmod +x /shared/tmp/fetch_and_run.sh
 
-# create the slurm token - the role doesn't have permission to create secret - this doesn't work
-#/shared/token_refresher.sh || true
-
-# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
-systemctl restart slurmctld
-
+# create the slurm token - the role permission with SecretManagerReadWrite must be added in the config file
+# in the cluster section with additional_iam_policies = arn:aws:iam::aws:policy/SecretsManagerReadWrite
+/shared/token_refresher.sh
 
 
 
