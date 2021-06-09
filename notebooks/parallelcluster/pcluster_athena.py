@@ -15,6 +15,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+# The sample code; software libraries; command line tools; proofs of concept; templates; or other related technology (including any of the 
+# foregoing that are provided by our personnel) is provided to you as AWS Content under the AWS Customer Agreement, or the relevant 
+# written agreement between you and AWS (whichever applies). You should not use this AWS Content in your production accounts, or on 
+# production or other critical data. You are responsible for testing, securing, and optimizing the AWS Content, such as sample code, as 
+# appropriate for production grade use based on your specific quality control practices and standards. Deploying AWS Content may incur AWS 
+# charges for creating or using AWS chargeable resources, such as running Amazon EC2 instances or using Amazon S3 storage.
 
 # Introduction to AWS ParallelCluster
 # This script is the same as the walk through in pcluster-athena++ notebook. 
@@ -46,7 +52,7 @@ from IPython.display import HTML, display
 
 
 class PClusterHelper:
-    def __init__(self, pcluster_name):
+    def __init__(self, pcluster_name, config_name, post_install_script):
         self.my_account_id = boto3.client('sts').get_caller_identity().get('Account')
         self.session = boto3.session.Session()
         self.region = self.session.region_name
@@ -55,6 +61,8 @@ class PClusterHelper:
         self.db_name = 'pclusterdb'
         self.slurm_secret_name = "slurm_token_{}".format(pcluster_name)
         self.use_existing_vpc = True
+        self.config_name = config_name
+        self.post_install_script = post_install_script
         self.my_bucket_name = pcluster_name.lower()+'-'+self.my_account_id
 
         
@@ -208,9 +216,9 @@ class PClusterHelper:
         # the response is a json {"username": "xxxx", "password": "xxxx", "engine": "mysql", "host": "xxxx", "port": "xxxx", "dbInstanceIdentifier", "xxxx"}
         rds_secret = json.loads(self.get_slurm_dbd_rds_secret())
 
-        post_install_script_prefix = 'scripts/post_install_script.sh'
+        post_install_script_prefix = self.post_install_script
         post_install_script_location = "s3://{}/{}".format(self.my_bucket_name, post_install_script_prefix)
-        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name +"'" 
+        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name  + ' ' + self.region +"'"
 
 
         # ### Post installation script
@@ -220,7 +228,7 @@ class PClusterHelper:
         s3_client = self.session.client('s3')
 
         try:
-            resp = s3_client.upload_file('scripts/pcluster_post_install.sh', self.my_bucket_name, post_install_script_prefix)
+            resp = s3_client.upload_file(post_install_script_prefix, self.my_bucket_name, post_install_script_prefix)
         except ClientError as e:
             print(e)
 
@@ -237,7 +245,7 @@ class PClusterHelper:
               '${POST_INSTALL_SCRIPT_ARGS}': post_install_script_args
              }
 
-        self.template_to_file("config/config.ini", "build/config", ph)
+        self.template_to_file("config/"+self.config_name+".ini", "build/"+self.config_name, ph)
 
             
     def create_after(self):
