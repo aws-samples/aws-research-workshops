@@ -80,7 +80,7 @@ class PClusterCostEstimator:
         
         response = self.submit_query(sql_str)
 
-        return self.retrieve_cur_df(response, True, "cluster_monthly_{}_{}.csv".format(cluster_name, year))
+        return self.retrieve_cur_df(response, False, "cluster_monthly_{}_{}.csv".format(cluster_name, year))
 
     def cluster_daily_per_month(self, cluster_name, cur_year, cur_month):
         sql_str = """SELECT line_item_usage_start_date, sum(line_item_blended_cost) as cost  
@@ -90,7 +90,7 @@ class PClusterCostEstimator:
             group by line_item_usage_start_date ;""".format(self.cur_db_name, self.cur_table_name,cur_year, cur_month, cluster_name)
         
         response = self.submit_query(sql_str)
-        cur_df = self.retrieve_cur_df(response, True, "cluster_daily_per_month_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
+        cur_df = self.retrieve_cur_df(response, False, "cluster_daily_per_month_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
 
         cur_df['line_item_usage_start_date'] = pd.to_datetime(cur_df['line_item_usage_start_date'])
         return cur_df.groupby([cur_df['line_item_usage_start_date'].dt.date]).sum()
@@ -103,7 +103,7 @@ class PClusterCostEstimator:
             group by line_item_usage_start_date, line_item_usage_type ;""".format(self.cur_db_name, self.cur_table_name,cur_year, cur_month, cluster_name)
         
         response = self.submit_query(sql_str)
-        cur_df = self.retrieve_cur_df(response, True, "cluster_daily_per_month_detail_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
+        cur_df = self.retrieve_cur_df(response, False, "cluster_daily_per_month_detail_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
 
         cur_df['line_item_usage_start_date'] = pd.to_datetime(cur_df['line_item_usage_start_date'])
         return cur_df.groupby([cur_df['line_item_usage_start_date'].dt.date, cur_df['line_item_usage_type']]).sum()
@@ -111,7 +111,7 @@ class PClusterCostEstimator:
     def cluster_daily_per_queue_month(self, cluster_name, cur_year, cur_month):
         sql_str = """SELECT line_item_usage_start_date as time_start, 
             resource_tags_user_queue_name as partition, 
-            sum(line_item_blended_cost) as cost  
+            sum(line_item_blended_cost) as compute_cost  
             FROM \"{}\".\"{}\" where year = '{}' and month ='{}' 
             and line_item_blended_cost > 0.00001 
             and resource_tags_user_cluster_name='{}'
@@ -119,7 +119,7 @@ class PClusterCostEstimator:
             line_item_usage_start_date""".format(self.cur_db_name, self.cur_table_name,cur_year, cur_month, cluster_name)
         
         response = self.submit_query(sql_str)
-        cur_df = self.retrieve_cur_df(response, True, "cluster_daily_per_month_queue_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
+        cur_df = self.retrieve_cur_df(response, False, "cluster_daily_per_month_queue_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
 
         cur_df['time_start'] = pd.to_datetime(cur_df['time_start'])
         return cur_df.groupby(['partition', cur_df['time_start'].dt.date]).sum()
