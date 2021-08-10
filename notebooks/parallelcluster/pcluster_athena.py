@@ -52,7 +52,7 @@ from IPython.display import HTML, display
 
 
 class PClusterHelper:
-    def __init__(self, pcluster_name, config_name, post_install_script):
+    def __init__(self, pcluster_name, config_name, post_install_script, dbd_host='localhost', federation_name=''):
         self.my_account_id = boto3.client('sts').get_caller_identity().get('Account')
         self.session = boto3.session.Session()
         self.region = self.session.region_name
@@ -64,6 +64,9 @@ class PClusterHelper:
         self.config_name = config_name
         self.post_install_script = post_install_script
         self.my_bucket_name = pcluster_name.lower()+'-'+self.my_account_id
+        self.dbd_host = dbd_host
+        self.mungekey_secret_name="munge_key"+'_'+federation_name
+        self.federation_name=federation_name
 
         
     ### assuem you have created a database secret in SecretManager with the name "slurm_dbd_credential"
@@ -218,7 +221,7 @@ class PClusterHelper:
 
         post_install_script_prefix = self.post_install_script
         post_install_script_location = "s3://{}/{}".format(self.my_bucket_name, post_install_script_prefix)
-        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name  + ' ' + self.region +"'"
+        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name  + ' ' + self.region  + ' ' + self.dbd_host + ' ' + self.federation_name + "'"
 
 
         # ### Post installation script
@@ -286,6 +289,8 @@ class PClusterHelper:
 
         print(f"Deleting secret {self.slurm_secret_name}")
         workshop.delete_secrets_with_force(self.region, self.session, [self.slurm_secret_name])
+        print(f"Deleting secret {self.mungekey_secret_name}")
+        workshop.delete_secrets_with_force(self.region, self.session, [self.mungekey_secret_name])
         print(f"Deleting bucket {self.my_bucket_name}")
         workshop.delete_bucket_with_version(self.my_bucket_name)
 
