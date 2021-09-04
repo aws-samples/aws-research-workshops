@@ -75,9 +75,11 @@ cd /shared
 # have to use the exact same slurm version as in the released version of ParallelCluster2.10.1 - 20.02.4
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
-wget https://download.schedmd.com/slurm/slurm-20.11.7.tar.bz2
-tar xjf slurm-20.11.7.tar.bz2
-cd slurm-20.11.7
+# changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
+slurm_version=20.11.7
+wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
+tar xjf slurm-${slurm_version}.tar.bz2
+cd slurm-${slurm_version}
 
 # config and build slurm
 ./configure --prefix=/opt/slurm --with-pmix=/opt/pmix

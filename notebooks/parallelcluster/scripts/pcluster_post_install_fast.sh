@@ -60,58 +60,27 @@ rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm || true
 wget http://repo.openfusion.net/centos7-x86_64/libjwt-devel-1.9.0-1.of.el7.x86_64.rpm
 rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm || true
 
-###### 
-## Install athena and hdf5
-######
-##get and build hdf5, which is required by athena++
-#PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
-#cd /shared
-#wget https://hdf-wordpress-1.s3.amazonaws.com/wp-content/uploads/manual/HDF5/HDF5_1_12_0/source/hdf5-1.12.0.tar
-#tar xf hdf5-1.12.0.tar
-#cd hdf5-1.12.0
-#./configure --enable-parallel --enable-shared
-#make 
-#make install
-
-## get athena++ , configure and build it
-#cd /shared
-#git clone https://github.com/PrincetonUniversity/athena-public-version
-#cd athena-public-version
-## configure for different problem types
-## prob: blast, orszag_tang, disk, jet, kh, shock_tube, ... for a complete list, check src/pgen/
-##
-#python configure.py --prob orszag_tang -b --flux hlld -omp -mpi -hdf5 --hdf5_path=/shared/hdf5-1.12.0/hdf5
-#make
-
-# For test only - to speed up the pcluster create process.
-aws s3 cp s3://jxudemo/athena_with_hdf5.tar.gz /shared/athena_with_hdf5.tar.gz
-cd /shared
-tar xzvf athena_with_hdf5.tar.gz
-
+##### 
+# Install athena and hdf5
 #####
-# Update slurm, with slurmrestd
-#####
-# Python3 is requred to build slurm >= 20.02, 
-
-#source /opt/parallelcluster/pyenv/versions/3.6.9/envs/cookbook_virtualenv/bin/activate
-source /opt/parallelcluster/pyenv/versions/cookbook_virtualenv/bin/activate
-
+#get and build hdf5, which is required by athena++
+PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
 cd /shared
-# have to use the exact same slurm version as in the released version of ParallelCluster2.10.1 - 20.02.4
-# as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
-# error could be seen in the cfn-init.log file
-# changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
+
+# Get precompiled athena++, hdf5, slurm so the pcluster creation will be faster for workshops
+
+wget https://static.myoctank.net/public/workshop-slurm-athena-hdf5.tar.gz
+tar xvzf workshop-slurm-athena-hdf5.tar.gz
+
+cd hdf5-1.12.0
+make install
+
 slurm_version=20.11.7
-wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
-tar xjf slurm-${slurm_version}.tar.bz2
-cd slurm-${slurm_version}
+cd /shared/slurm-${slurm_version}
 
 # config and build slurm
-./configure --prefix=/opt/slurm --with-pmix=/opt/pmix
-make -j $CORES
 make install
 make install-contrib
-deactivate
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
