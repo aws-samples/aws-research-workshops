@@ -67,6 +67,7 @@ class PClusterHelper:
         self.dbd_host = dbd_host
         self.mungekey_secret_name="munge_key"+'_'+federation_name
         self.federation_name=federation_name
+        self.ssh_key_name='pcluster-athena-key'
 
         
     ### assuem you have created a database secret in SecretManager with the name "slurm_dbd_credential"
@@ -122,16 +123,16 @@ class PClusterHelper:
         # specify the following names
 
         # ssh key for access the pcluster. this key is not needed  in this excercise, but useful if you need to ssh into the headnode of the pcluster
-        key_name = 'pcluster-athena-key'
-        keypair_saved_path = './'+key_name+'.pem'
+
+        keypair_saved_path = './'+self.ssh_key_name+'.pem'
 
 
         # we will not need to use the ssh_key in this excercise. However, you can only download the key once during creation. we will save it in case
         try:
-            workshop.create_keypair(self.region, self.session, key_name, keypair_saved_path)
+            workshop.create_keypair(self.region, self.session, self.ssh_key_name, keypair_saved_path)
         except ClientError as e:
             if e.response['Error']['Code'] == "InvalidKeyPair.Duplicate":
-                print("KeyPair with the name {} alread exists. Skip".format(key_name))
+                print("KeyPair with the name {} alread exists. Skip".format(self.ssh_key_name))
 
 
         # ## VPC
@@ -243,7 +244,7 @@ class PClusterHelper:
         ph = {'${REGION}': self.region, 
               '${VPC_ID}': self.vpc_id, 
               '${SUBNET_ID}': subnet_id, 
-              '${KEY_NAME}': key_name, 
+              '${KEY_NAME}': self.ssh_key_name, 
               '${POST_INSTALL_SCRIPT_LOCATION}': post_install_script_location, 
               '${POST_INSTALL_SCRIPT_ARGS}': post_install_script_args
              }
@@ -280,8 +281,8 @@ class PClusterHelper:
         workshop.update_security_group(head_sg_name, cidr, 8082)
 
 
-    def cleanup_after(self, KeepRDS=True):
-        
+    def cleanup_after(self,KeepRDS=True,KeepSSHKey=True):
+    
         # delete the rds database
         if not KeepRDS:
             workshop.detele_rds_instance(self.region, self.session, self.db_name)
@@ -293,6 +294,11 @@ class PClusterHelper:
         workshop.delete_secrets_with_force(self.region, self.session, [self.mungekey_secret_name])
         print(f"Deleting bucket {self.my_bucket_name}")
         workshop.delete_bucket_with_version(self.my_bucket_name)
+
+        if not KeepSSHKey:
+            print(f"Deleting ssh_key {self.ssh_key_name}")        
+            workshop.delete_keypair(self.region, self.session, self.ssh_key_name)
+
 
     def test(self):
         print(os.popen('ls').read())

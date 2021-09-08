@@ -306,6 +306,14 @@ def create_keypair(region, session, key_name, save_path):
     
     print(new_keypair.key_fingerprint)
     
+def delete_keypair(region, session, key_name):
+    try:
+        boto3.client('ec2').delete_key_pair(KeyName=key_name)
+    except ClientError as e:
+        print(e.response)
+        # ignore if the key doesn't exist
+        print("Key doesn't exist, ignored")
+    
 def create_simple_mysql_rds(region, session, db_name, subnet_ids, rds_secret_name):
     ENGINE_NAME = 'mysql'
     DB_INSTANCE_TYPE = 'db.m5.large'

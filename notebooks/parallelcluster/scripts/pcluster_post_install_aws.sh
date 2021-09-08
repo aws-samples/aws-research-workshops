@@ -130,7 +130,7 @@ systemctl daemon-reload
 systemctl restart munge
 
 
-mkdir /shared/tmp
+mkdir -p /shared/tmp
 chown slurm /shared/tmp
 
 cat <<EOF>/shared/tmp/batch_test.sh

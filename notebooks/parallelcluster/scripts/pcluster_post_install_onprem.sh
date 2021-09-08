@@ -252,19 +252,7 @@ then
     aws secretsmanager create-secret --name munge_key_$FEDERATION_NAME --secret-binary fileb:///etc/munge/munge.key --region $REGION
 fi
 
-# need to enable the trust between two clusters 
-onprem_sg=$(aws cloudformation describe-stack-resource --stack-name='parallelcluster-awscluster' --logical-resource-id='MasterSecurityGroup' --region $REGION --query "StackResourceDetail.PhysicalResourceId")
-aws_sg=$(aws cloudformation describe-stack-resource --stack-name='parallelcluster-awscluster' --logical-resource-id='MasterSecurityGroup' --region $REGION --query "StackResourceDetail.PhysicalResourceId")
-
-
-
-su -c "/opt/slurm/bin/sacctmgr -i add cluster $lower_name" slurm 
-su -c "/opt/slurm/bin/sacctmgr -i add federation $FEDERATION_NAME Clusters+=$lower_name" slurm
-
 systemctl restart slurmctld
-
-mkdir /shared/tmp
-chown slurm /shared/tmp
 
 cat >/shared/tmp/batch_test.sh <<EOF
 #!/bin/bash
