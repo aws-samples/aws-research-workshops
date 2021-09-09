@@ -129,6 +129,8 @@ fi
 systemctl daemon-reload
 systemctl restart munge
 
+# activate the cluster in sacctmgr
+systemctl restart slurmctld
 
 mkdir -p /shared/tmp
 chown slurm /shared/tmp

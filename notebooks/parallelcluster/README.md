@@ -11,6 +11,7 @@ We will also use a popular MHD (Meganeto Hydrodynamics) package Athena++ as and 
 Learning objects of this workshop
 - How to interact with AWS ParallelCluster via REST API
 - How to allocate cost of individual jobs using AWS Cost and Usage (CUR) data and Slurm Account.
+- How to use Slurm Federation to submit jobs to another cluster
 
 ## Introduction
 Athena++ (https://www.athena-astro.app/) uses MPI and OpenMP to solve 1-3D meganetohydrodynamics problems in astrophysical environments. For more information about Athena++, please visit 
@@ -23,9 +24,11 @@ In notebooks "pcluster-athena++" and "pcluster-athena++short" (more concise vers
 
 In notebook "pcluster-accounting", we will exam the CUR using queries on Amazon Athena (not to be confused with MDH package Athena++) and how to correlate the cost of the cluster and queues with Slurm Accounting data. 
 
+In notebook "pcluster-federation"", we will create two AWS ParallelClusters "awscluster " and "onpremcluster"(used to simiulate an on-prem cluster), enable Slurm Federation on both clusters and submit jobs across the clusters. 
+
 
 ## Getting started
-We will be creating and interacting with an instance of AWS ParallelCluster from this Jupyter Notebook. This requires the execution role of this Jupyter Notebook to have certain permissions. 
+We will be creating and interacting with instances of AWS ParallelCluster from this Jupyter Notebook. This requires the execution role of this Jupyter Notebook to have certain permissions. 
 
 Details about the policies are described in this document. 
 https://docs.aws.amazon.com/parallelcluster/latest/ug/iam.html#parallelclusteruserpolicy
