@@ -1,0 +1,31 @@
+Transform: AWS::SecretsManager-2020-07-23
+Description: Create a simple mySQL RDS and a secret
+Resources:
+  #This is a Secret resource with a randomly generated password in its SecretString JSON.
+  MyRDSInstanceSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: slurm_dbd_credential
+      Description: This is my rds instance secret
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "db_user", "engine":"mysql", "host":"", "port": "3306"}'
+        GenerateStringKey: password
+        PasswordLength: 16
+        ExcludeCharacters: "\"@/\\"
+      Tags:
+      - Key: AppName
+        Value: MyApp
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: pclusterdb
+      DBName: pclusterdb
+      PubliclyAccessible: True
+      Engine: mysql
+      MasterUsername:
+        Fn::Sub: "{{resolve:secretsmanager:${MyRDSInstanceSecret}::username}}"
+      MasterUserPassword:
+        Fn::Sub: "{{resolve:secretsmanager:${MyRDSInstanceSecret}::password}}"
+      BackupRetentionPeriod: 0
