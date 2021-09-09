@@ -148,8 +148,12 @@ class PClusterHelper:
 
             subnet_filter = [{'Name':'vpc-id', 'Values':[self.vpc_id]}]
             subnets = ec2_client.describe_subnets(Filters=subnet_filter)
-            subnet_id = subnets['Subnets'][0]['SubnetId']
-            subnet_id2 = subnets['Subnets'][1]['SubnetId']    
+            # only pick 1a, 1b az - others might have issue with resources
+            for sn in subnets['Subnets']:
+                if '-1a' in sn['AvailabilityZone'] :
+                    subnet_id = sn['SubnetId']
+                if '-1b' in sn['AvailabilityZone'] :
+                    subnet_id2 = sn['SubnetId']    
         else: 
             vpc, subnet1, subnet2 = workshop.create_and_configure_vpc()
             self.vpc_id = vpc.id
