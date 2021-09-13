@@ -11,6 +11,7 @@ Resources:
         SecretStringTemplate: '{"username": "db_user", "engine":"mysql", "host":"", "port": "3306"}'
         GenerateStringKey: password
         PasswordLength: 16
+        ExcludePunctuation: True
         ExcludeCharacters: "\"@/\\"
       Tags:
       - Key: AppName
