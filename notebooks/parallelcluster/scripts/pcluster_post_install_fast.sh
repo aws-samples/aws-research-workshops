@@ -17,15 +17,24 @@ case "${cfn_node_type}" in
     ;;
 esac
 
+
+# give slurm user permission to run aws CLI
+/opt/parallelcluster/scripts/imds/imds-access.sh --allow slurm
+
 #####
 #Takes the following argument, $0 is the script name, $1 is the S3 url, $2 is the first arg for rds hostname
 #####
-PCLUSTER_RDS_HOST="$2"
-PCLUSTER_RDS_PORT="$3"
-PCLUSTER_RDS_USER="$4"
-PCLUSTER_RDS_PASS="$5"
-PCLUSTER_NAME="$6"
-REGION="$7"
+PCLUSTER_RDS_HOST="$1"
+PCLUSTER_RDS_PORT="$2"
+PCLUSTER_RDS_USER="$3"
+PCLUSTER_RDS_PASS="$4"
+PCLUSTER_NAME="$5"
+REGION="$6"
+
+
+tar_ball=workshop-pcluster3-slurm-athena-hdf5.tar.gz
+slurm_version=20.11.8
+
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -69,13 +78,12 @@ cd /shared
 
 # Get precompiled athena++, hdf5, slurm so the pcluster creation will be faster for workshops
 
-wget https://static.myoctank.net/public/workshop-slurm-athena-hdf5.tar.gz
-tar xvzf workshop-slurm-athena-hdf5.tar.gz
+wget https://static.myoctank.net/public/${tar_ball}
+tar xvzf ${tar_ball}
 
 cd hdf5-1.12.0
 make install
 
-slurm_version=20.11.7
 cd /shared/slurm-${slurm_version}
 
 # config and build slurm

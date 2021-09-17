@@ -250,7 +250,15 @@ class PClusterHelper:
               '${SUBNET_ID}': subnet_id, 
               '${KEY_NAME}': self.ssh_key_name, 
               '${POST_INSTALL_SCRIPT_LOCATION}': post_install_script_location, 
-              '${POST_INSTALL_SCRIPT_ARGS}': post_install_script_args
+              '${POST_INSTALL_SCRIPT_ARGS_1}': "'"+rds_secret['host']+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_2}': "'"+str(rds_secret['port'])+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_3}': "'"+rds_secret['username']+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_4}': "'"+rds_secret['password']+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_5}': "'"+self.pcluster_name+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_6}': "'"+self.region+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_7}': "'"+self.dbd_host+"'",       
+              '${POST_INSTALL_SCRIPT_ARGS_8}': "'"+self.federation_name+"'",
+              '${BUCKET_NAME}': self.my_bucket_name
              }
 
         self.template_to_file("config/"+self.config_name+".ini", "build/"+self.config_name, ph)
@@ -266,13 +274,12 @@ class PClusterHelper:
 
         # Use the stack name to find the resources created with the parallelcluster. Use some of the information to update
         # the IAM policy and security group
-        cluster_stack_name = 'parallelcluster-'+self.pcluster_name
-
+        cluster_stack_name = self.pcluster_name
 
         #Step 1. Get the head-node's instanace role and headnode security group 
         cf_client = boto3.client('cloudformation')
-        root_role_info = cf_client.describe_stack_resource(StackName=cluster_stack_name, LogicalResourceId='RootRole' )
-        sg_info = cf_client.describe_stack_resource(StackName=cluster_stack_name, LogicalResourceId='MasterSecurityGroup' )
+        root_role_info = cf_client.describe_stack_resource(StackName=cluster_stack_name, LogicalResourceId='RoleHeadNode' )
+        sg_info = cf_client.describe_stack_resource(StackName=cluster_stack_name, LogicalResourceId='HeadNodeSecurityGroup' )
 
         #Root role  and security group physical resource id
         head_sg_name = sg_info['StackResourceDetail']['PhysicalResourceId']
@@ -284,7 +291,9 @@ class PClusterHelper:
 
         workshop.update_security_group(head_sg_name, cidr, 8082)
 
-
+ #       resp = cf_client.describe_stacks(StackName=clsuter_stack_name)
+ #       headnode_ip = resp[]
+        
     def cleanup_after(self,KeepRDS=True,KeepSSHKey=True):
     
         # delete the rds database

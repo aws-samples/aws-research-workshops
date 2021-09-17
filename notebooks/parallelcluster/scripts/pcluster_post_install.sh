@@ -17,15 +17,18 @@ case "${cfn_node_type}" in
     ;;
 esac
 
+# give slurm user permission to run aws CLI
+/opt/parallelcluster/scripts/imds/imds-access.sh --allow slurm
+
 #####
 #Takes the following argument, $0 is the script name, $1 is the S3 url, $2 is the first arg for rds hostname
 #####
-PCLUSTER_RDS_HOST="$2"
-PCLUSTER_RDS_PORT="$3"
-PCLUSTER_RDS_USER="$4"
-PCLUSTER_RDS_PASS="$5"
-PCLUSTER_NAME="$6"
-REGION="$7"
+PCLUSTER_RDS_HOST="$1"
+PCLUSTER_RDS_PORT="$2"
+PCLUSTER_RDS_USER="$3"
+PCLUSTER_RDS_PASS="$4"
+PCLUSTER_NAME="$5"
+REGION="$6"
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -97,7 +100,8 @@ cd /shared
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-slurm_version=20.11.7
+# changelog: change to 20.11.8 from 20.11.7 on 2021/09/16 - pcluster 3
+slurm_version=20.11.8
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
 cd slurm-${slurm_version}
