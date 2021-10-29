@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # terminate script if there is an error
-set -e 
+set -e
+#set -x
 
 #####
 # don't do anything else if it's compute node, just install htop
@@ -17,6 +18,7 @@ case "${cfn_node_type}" in
     ;;
 esac
 
+
 # give slurm user permission to run aws CLI
 /opt/parallelcluster/scripts/imds/imds-access.sh --allow slurm
 
@@ -29,6 +31,7 @@ PCLUSTER_RDS_USER="$3"
 PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
+FEDERATION_NAME="$8"
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -36,9 +39,10 @@ CORES=$(grep processor /proc/cpuinfo | wc -l)
 lower_name=$(echo $PCLUSTER_NAME | tr '[:upper:]' '[:lower:]')
 
 yum update -y
+
 # change the cluster name
 sed -i 's/ClusterName=parallelcluster/ClusterName='$lower_name'/g' /opt/slurm/etc/slurm.conf
-rm /var/spool/slurm.state/*
+rm -rf /var/spool/slurm.state/* || true
 
 #####
 #install pre-requisites
@@ -59,33 +63,9 @@ cd /shared
 # install libjwt-devel as part of the pre-requisites. libjwt-devel.so and libjwt.so will be installed in /usr/lib64
 wget http://repo.openfusion.net/centos7-x86_64/libjwt-1.9.0-1.of.el7.x86_64.rpm
 # ignore the libjwt already installed error
-rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm || true
+rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm
 wget http://repo.openfusion.net/centos7-x86_64/libjwt-devel-1.9.0-1.of.el7.x86_64.rpm
-rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm || true
-
-##### 
-# Install athena and hdf5
-#####
-#get and build hdf5, which is required by athena++
-PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
-cd /shared
-wget https://hdf-wordpress-1.s3.amazonaws.com/wp-content/uploads/manual/HDF5/HDF5_1_12_0/source/hdf5-1.12.0.tar
-tar xf hdf5-1.12.0.tar
-cd hdf5-1.12.0
-./configure --enable-parallel --enable-shared
-make 
-make install
-
-# get athena++ , configure and build it
-cd /shared
-git clone https://github.com/PrincetonUniversity/athena-public-version
-cd athena-public-version
-# configure for different problem types
-# prob: blast, orszag_tang, disk, jet, kh, shock_tube, ... for a complete list, check src/pgen/
-#
-python configure.py --prob orszag_tang -b --flux hlld -omp -mpi -hdf5 --hdf5_path=/shared/hdf5-1.12.0/hdf5
-make
-
+rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm 
 
 #####
 # Update slurm, with slurmrestd
@@ -100,7 +80,6 @@ cd /shared
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-# changelog: change to 20.11.8 from 20.11.7 on 2021/09/16 - pcluster 3
 slurm_version=20.11.8
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
@@ -267,8 +246,32 @@ chmod +x /shared/tmp/fetch_and_run.sh
 
 # create the slurm token - the role permission with SecretManagerReadWrite must be added in the config file
 # in the cluster section with additional_iam_policies = arn:aws:iam::aws:policy/SecretsManagerReadWrite
-/shared/token_refresher.sh
+/shared/token_refresher.sh 
 
+
+if [ $FEDERATION_NAME ]
+then
+    # store the munge.key in secret manager so the other cluster can use it, ignore if it doesn't exist
+    aws secretsmanager delete-secret --secret-id munge_key_$FEDERATION_NAME --force-delete-without-recovery --region $REGION | true
+    aws secretsmanager create-secret --name munge_key_$FEDERATION_NAME --secret-binary fileb:///etc/munge/munge.key --region $REGION
+fi
+
+systemctl restart slurmctld
+
+cat >/shared/tmp/batch_test.sh <<EOF
+#!/bin/bash
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=4
+#SBATCH --partition=q1
+#SBATCH --job-name=test
+
+cd /shared/tmp
+
+srun hostname
+srun sleep 60
+EOF
+
+chown slurm /shared/tmp/batch_test.sh
 
 
 

@@ -1,24 +1,37 @@
 # Using AWS ParallelCluster for Research
 
+This workshop is intended for users who are familiar with AWS ParallelCluster, Jupyter Notebook and basic AWS infrastructure concepts. If you are looking for a more introductory workshop for AWS ParallelCluster, please visit https://www.hpcworkshops.com/. 
+
+AWS ParallelCluster is an open source cluster management tool that makes it easy for you to deploy and manage High Performance Computing (HPC) clusters on AWS. Currently, using a scheduler like Slurm to submit a job, check queue status or list current job requires a user to SSH into the headnode of the cluster. 
+
+In this workshop, we will learn how to enable SlurmREST API and Slurm Accounting, using post install scripts during the cluster creation. Instead of running pcluster and aws CLI on command line to build up infrastructure and the cluster, we will be using a fully managed Jupyter Notebook in Amazon SageMaker to execute the pcluster command and boto3 SDK for infrastructure creation. 
+
+We will also use a popular MHD (Meganeto Hydrodynamics) package Athena++ as and example to show you how to run multi-node MPI programs on AWS ParallelCluster. 
+
+Learning objects of this workshop
+- How to interact with AWS ParallelCluster via REST API
+- How to allocate cost of individual jobs using AWS Cost and Usage (CUR) data and Slurm Account.
+- How to use Slurm Federation to submit jobs to another cluster
+
 ## Introduction
-Athena++ (https://www.athena-astro.app/) uses MPI and OpenMP to solve 1-3D megetohydrodynamics problems in astrophysical environments. For more information about Athena++, please visit 
+Athena++ (https://www.athena-astro.app/) uses MPI and OpenMP to solve 1-3D meganetohydrodynamics problems in astrophysical environments. For more information about Athena++, please visit 
 https://github.com/PrincetonUniversity/athena-public-version/wiki. The problem Athena++ can solve can be large. High resolution simulations sometimes require multiple nodes. 
 
-In this notebook, we will use Athena++ to learn how to run a tightly coupled numerical sumulation on AWS ParallelCluster. 
+In notebooks "pcluster-athena++" and "pcluster-athena++short" (more concise version), we will 
+- Use Athena++ to learn how to run a tightly coupled numerical sumulation on AWS ParallelCluster with Slurm scheduler. 
+- Use pcluster command line (CLI) along with AWS boto3 SDK to create the infrastructure (VPCs, Subnets, Security Groups, IAMs) and then the ParallelCluster itself. We will then prepare a initial input file of an Orszag-Tang vortext test (https://www.astro.princeton.edu/~jstone/Athena/tests/orszag-tang/pagesource.html) and submit the job to the ParallelcCluster through Slurm REST API, the end-point of which runs on the head-node of the ParallelCluster. 
+- At the end, we will visulize the simulation results. 
 
-We will be using pcluster command line (CLI) along with AWS boto3 SDK to create the infrastructure (VPCs, Subnets, Security Groups, IAMs) and then the ParallelCluster itself. We will then prepare a initial input file of an Orszag-Tang vortext test (https://www.astro.princeton.edu/~jstone/Athena/tests/orszag-tang/pagesource.html) and submit the job to the ParallelcCluster through Slurm REST API, the end-point of which runs on the head-node of the ParallelCluster. 
+In notebook "pcluster-accounting", we will exam the CUR using queries on Amazon Athena (not to be confused with MDH package Athena++) and how to correlate the cost of the cluster and queues with Slurm Accounting data. 
 
-At the end, we will visulize the simulation results. 
-
-## About AWS ParallelCluster - https://aws.amazon.com/hpc/parallelcluster/
-
-AWS ParallelCluster is an AWS-supported open source cluster management tool that makes it easy for you to deploy and manage High Performance Computing (HPC) clusters on AWS. ParallelCluster uses a simple plaintext configuration files to specify the infrastructure. A python command (pcluster - PyPI) then use this config file to provision the cluster. AWS ParallelCluster supports multiple scheduer, but in this notebook, we will use Slurm. 
+In notebook "pcluster-federation"", we will create two AWS ParallelClusters "awscluster " and "onpremcluster"(used to simiulate an on-prem cluster), enable Slurm Federation on both clusters and submit jobs across the clusters. 
 
 
 ## Getting started
-We will be creating and interacting with an instance of AWS ParallelCluster from this Jupyter Notebook. This requires the execution role of this Jupyter Notebook to have certain permissions. 
+We will be creating and interacting with instances of AWS ParallelCluster from this Jupyter Notebook. This requires the execution role of this Jupyter Notebook to have certain permissions. 
 
-The "pclusterDefaultPolicy.json" and "pclusterNotebookPolicy.json" can be used to set the permissions. 
+Details about the policies are described in this document. 
+https://docs.aws.amazon.com/parallelcluster/latest/ug/iam.html#parallelclusteruserpolicy
 
 ### Step 1. Create a SageMaker Notebook from your AWS console
 https://docs.aws.amazon.com/sagemaker/latest/dg/howitworks-create-ws.html

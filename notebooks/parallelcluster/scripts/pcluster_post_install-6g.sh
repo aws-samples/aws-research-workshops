@@ -17,6 +17,7 @@ case "${cfn_node_type}" in
     ;;
 esac
 
+
 # give slurm user permission to run aws CLI
 /opt/parallelcluster/scripts/imds/imds-access.sh --allow slurm
 
@@ -30,39 +31,91 @@ PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
 
+
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
 CORES=$(grep processor /proc/cpuinfo | wc -l)
 lower_name=$(echo $PCLUSTER_NAME | tr '[:upper:]' '[:lower:]')
 
 yum update -y
+
+
 # change the cluster name
 sed -i 's/ClusterName=parallelcluster/ClusterName='$lower_name'/g' /opt/slurm/etc/slurm.conf
 rm /var/spool/slurm.state/*
 
-#####
-#install pre-requisites
-#####
-yum install –y epel-release
-yum-config-manager --enable epel
-yum install -y hdf5-devel
-yum install -y libyaml http-parser-devel json-c-devel
-
 # update the linked libs 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/lib64
+
 cat > /etc/ld.so.conf.d/slurmrestd.conf <<EOF
 /usr/local/lib
 /usr/local/lib64
 EOF
 
-cd /shared
-# install libjwt-devel as part of the pre-requisites. libjwt-devel.so and libjwt.so will be installed in /usr/lib64
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-1.9.0-1.of.el7.x86_64.rpm
-# ignore the libjwt already installed error
-rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm || true
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-devel-1.9.0-1.of.el7.x86_64.rpm
-rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm || true
 
+#####
+#install pre-requisites
+#####
+
+# install dependencies for Slurm
+yum install -y cmake3
+
+
+# dep 1 - JSON
+cd /shared
+git clone --depth 1 --single-branch -b json-c-0.15-20200726 https://github.com/json-c/json-c.git json-c
+cd json-c
+cmake3 .
+make
+make install
+
+# dep 2 - HTTP Parser
+cd /shared
+git clone --depth 1 --single-branch -b v2.9.4 https://github.com/nodejs/http-parser.git http_parser-c
+cd http_parser-c
+make
+sudo make install
+
+# dep 3 - YAML parser
+cd /shared
+git clone --depth 1 --single-branch -b 0.2.5 https://github.com/yaml/libyaml libyaml
+cd libyaml
+./bootstrap
+./configure
+make
+sudo make install
+
+# dep 4 - jansson is needed for libjwt - NOTE: need to do this after json-c for some reason - otherwise libjwt will fail to build
+cd /shared
+git clone --depth 1 --single-branch -b 2.4 https://github.com/akheron/jansson jansson
+cd jansson
+autoreconf -i
+./configure --prefix=/usr/local
+make 
+make install
+
+
+# dep 5 - update openssl to 1.1 - libjwt depends on this , otherwise slurm will not find libjwt. default install tl /usr/local
+cd /shared 
+git clone --depth 1 --single-branch -b OpenSSL_1_1_1-stable https://github.com/openssl/openssl.git openssl-1.1.1
+cd openssl-1.1.1
+./config
+make
+make install
+
+# jansson is installed at /usr/local/lib64, others are installed at /usr/local/lib
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig/:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
+
+# dep 6 - libjwt
+cd /shared
+git clone --depth 1 --single-branch -b v1.12.0 https://github.com/benmcollins/libjwt.git libjwt
+cd libjwt
+autoreconf --force --install
+./configure 
+make -j
+sudo make install
+
+# dep 7 - hdf5
 ##### 
 # Install athena and hdf5
 #####
@@ -92,26 +145,26 @@ make
 #####
 # Python3 is requred to build slurm >= 20.02, 
 
-#source /opt/parallelcluster/pyenv/versions/3.6.9/envs/cookbook_virtualenv/bin/activate
 source /opt/parallelcluster/pyenv/versions/cookbook_virtualenv/bin/activate
+
 
 cd /shared
 # have to use the exact same slurm version as in the released version of ParallelCluster2.10.1 - 20.02.4
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-# changelog: change to 20.11.8 from 20.11.7 on 2021/09/16 - pcluster 3
-slurm_version=20.11.8
+slurm_version=20.11.7
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
 cd slurm-${slurm_version}
 
 # config and build slurm
-./configure --prefix=/opt/slurm --with-pmix=/opt/pmix
+./configure --prefix=/opt/slurm --with-pmix=/opt/pmix --with-hdf5=no --with-http-parser=/usr/local/ --with-yaml=/usr/local/ --with-jwt=/usr/local/
 make -j $CORES
 make install
 make install-contrib
-deactivate
+
+
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
@@ -176,8 +229,7 @@ include /opt/slurm/etc/slurm.conf
 AuthType=auth/jwt
 EOF
 
-# 
-/opt/slurm/sbin/slurmdbd
+
 
 #####
 # Enable slurmrestd to run as a service
@@ -192,20 +244,25 @@ After=network.target slurmctl.service
 ConditionPathExists=/opt/slurm/etc/slurmrestd.conf
 
 [Service]
-Environment=SLURM_CONF=/opt/slurm/etc/slurmrestd.conf
+Environment=SLURM_CONF=/opt/slurm/etc/slurmrestd.conf LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH
 ExecStart=/opt/slurm/sbin/slurmrestd -vvvv 0.0.0.0:8082 -u slurm
 PIDFile=/var/run/slurmrestd.pid
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+####
+# Add /usr/local/lib to the LD_LIBRARY_PATH so slurmctld will be able to find jwt libs
+####
+cat >/etc/sysconfig/slurmctld<<EOF
+# this is needed for slurmctld to see libjwt libs
+
+LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
+
+EOF
 ##### restart the daemon and start the slurmrestd
 systemctl daemon-reload
-systemctl start slurmrestd
-
-# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
-systemctl restart slurmctld
-
 
 ## initialize the sacctmgr - this is done automatically by slurmdbd
 ##/opt/slurm/bin/sacctmgr add cluster parallelcluster
@@ -216,12 +273,12 @@ systemctl restart slurmctld
 cat >/shared/token_refresher.sh<<EOF
 #!/bin/bash
 export \$(/opt/slurm/bin/scontrol token -u slurm)
-aws secretsmanager describe-secret --secret-id slurm_token_${PCLUSTER_NAME} --region $REGION
+aws secretsmanager describe-secret --secret-id slurm_token_${PCLUSTER_NAME} --region ${REGION}
 if [ \$? -eq 0 ]
 then
- aws secretsmanager update-secret --secret-id slurm_token_${PCLUSTER_NAME} --secret-string "\$SLURM_JWT" --region $REGION
+ aws secretsmanager update-secret --secret-id slurm_token_${PCLUSTER_NAME} --secret-string "\$SLURM_JWT" --region ${REGION}
 else
- aws secretsmanager create-secret --name slurm_token_${PCLUSTER_NAME} --secret-string "\$SLURM_JWT" --region $REGION
+ aws secretsmanager create-secret --name slurm_token_${PCLUSTER_NAME} --secret-string "\$SLURM_JWT" --region ${REGION}
 fi
 EOF
 
@@ -264,6 +321,13 @@ sbatch \$4
 EOF
 
 chmod +x /shared/tmp/fetch_and_run.sh
+
+# restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
+# 
+/opt/slurm/sbin/slurmdbd
+systemctl start slurmrestd
+systemctl restart slurmctld
+
 
 # create the slurm token - the role permission with SecretManagerReadWrite must be added in the config file
 # in the cluster section with additional_iam_policies = arn:aws:iam::aws:policy/SecretsManagerReadWrite
