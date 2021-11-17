@@ -1,0 +1,12 @@
+diff -urwB slurm-rest-api-client/slurm_rest_api_client/models/v0036_node_allocation.py slurm-rest-api-client-patched/slurm_rest_api_client/models/v0036_node_allocation.py
+--- slurm-rest-api-client/slurm_rest_api_client/models/v0036_node_allocation.py	2021-11-17 18:58:51.510567435 +0000
++++ slurm-rest-api-client-patched/slurm_rest_api_client/models/v0036_node_allocation.py	2021-11-03 22:10:51.405977583 +0000
+@@ -50,6 +50,8 @@
+ 
+     @classmethod
+     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
++        if isinstance(src_dict, str):
++            src_dict={}
+         d = src_dict.copy()
+         memory = d.pop("memory", UNSET)
+ 
