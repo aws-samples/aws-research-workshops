@@ -581,7 +581,7 @@ def delete_simple_compute_environment(proj_name):
         # clean up the other resouces created 
         batch_instance_role_name = f"batch_instance_role_{proj_name}"
         instance_profile_name =f"instance_profile_{proj_name}"
-        batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess"]
+        batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess", "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
 
         try:
             iam_client.remove_role_from_instance_profile(InstanceProfileName=instance_profile_name, RoleName=batch_instance_role_name)
@@ -589,13 +589,14 @@ def delete_simple_compute_environment(proj_name):
             if e.response['Error']['Code'] == 'NoSuchEntity':
                 print("Ignore profile removal")
 
+        print("deleting service role" , batch_instance_role_name)
         delete_service_role_with_policies(batch_instance_role_name,  batch_instance_policies)
         iam_client.delete_instance_profile(InstanceProfileName=instance_profile_name)
 
 
 
         batch_service_role_name = f"batch_service_role_{proj_name}"
-        batch_service_policies = ["arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole", "arn:aws:iam::aws:policy/CloudWatchFullAccess"]
+        batch_service_policies = ["arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole", "arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
         delete_service_role_with_policies(batch_service_role_name, batch_service_policies)
 
         batch_sg_name = f"batch_sg_{proj_name}"
