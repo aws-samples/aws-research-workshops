@@ -19,10 +19,10 @@ futures==3.1.1
 gg-group-setup==0.5.2
 idna==2.6
 ipaddress==1.0.18
-ipython==5.4.1
+ipython==5.11
 ipython-genutils==0.2.0
 jmespath==0.9.3
-numpy==1.13.0
+numpy==1.21
 pathlib2==2.3.0
 pexpect==4.2.1
 pickleshare==0.7.4
