@@ -31,7 +31,8 @@ PCLUSTER_RDS_USER="$3"
 PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
-FEDERATION_NAME="$8"
+slurm_version="$7"
+FEDERATION_NAME="$9"
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -51,6 +52,7 @@ yum install –y epel-release
 yum-config-manager --enable epel
 yum install -y hdf5-devel
 yum install -y libyaml http-parser-devel json-c-devel
+yum install -y libjwt libjwt-devel
 
 # update the linked libs 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
@@ -58,14 +60,6 @@ cat > /etc/ld.so.conf.d/slurmrestd.conf <<EOF
 /usr/local/lib
 /usr/local/lib64
 EOF
-
-cd /shared
-# install libjwt-devel as part of the pre-requisites. libjwt-devel.so and libjwt.so will be installed in /usr/lib64
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-1.9.0-1.of.el7.x86_64.rpm
-# ignore the libjwt already installed error
-rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-devel-1.9.0-1.of.el7.x86_64.rpm
-rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm 
 
 #####
 # Update slurm, with slurmrestd
@@ -80,13 +74,13 @@ cd /shared
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-slurm_version=20.11.8
+#slurm_version=20.11.8
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
 cd slurm-${slurm_version}
 
 # config and build slurm
-./configure --prefix=/opt/slurm --with-pmix=/opt/pmix
+./configure --prefix=/opt/slurm --with-pmix=/opt/pmix --enable-slurmrestd
 make -j $CORES
 make install
 make install-contrib
@@ -172,7 +166,8 @@ ConditionPathExists=/opt/slurm/etc/slurmrestd.conf
 
 [Service]
 Environment=SLURM_CONF=/opt/slurm/etc/slurmrestd.conf
-ExecStart=/opt/slurm/sbin/slurmrestd -vvvv 0.0.0.0:8082 -u slurm
+Environment="SLURM_JWT=daemon"
+ExecStart=/opt/slurm/sbin/slurmrestd -vvvv 0.0.0.0:8082 -u ec2-user
 PIDFile=/var/run/slurmrestd.pid
 
 [Install]
@@ -194,7 +189,7 @@ systemctl restart slurmctld
 #####
 cat >/shared/token_refresher.sh<<EOF
 #!/bin/bash
-export \$(/opt/slurm/bin/scontrol token -u slurm)
+export \$(/opt/slurm/bin/scontrol token -u ec2-user)
 aws secretsmanager describe-secret --secret-id slurm_token_${PCLUSTER_NAME} --region $REGION
 if [ \$? -eq 0 ]
 then

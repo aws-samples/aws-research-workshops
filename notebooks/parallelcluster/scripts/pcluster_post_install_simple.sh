@@ -30,6 +30,8 @@ PCLUSTER_RDS_USER="$3"
 PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
+slurm_version="$7"
+
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -105,7 +107,7 @@ cd /shared
 # as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-slurm_version=20.11.7
+# slurm_version=20.11.7
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
 cd slurm-${slurm_version}

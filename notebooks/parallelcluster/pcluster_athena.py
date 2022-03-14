@@ -52,7 +52,7 @@ from IPython.display import HTML, display
 
 
 class PClusterHelper:
-    def __init__(self, pcluster_name, config_name, post_install_script, dbd_host='localhost', federation_name=''):
+    def __init__(self, pcluster_name, config_name, post_install_script, slurm_version='', dbd_host='localhost', federation_name=''):
         self.my_account_id = boto3.client('sts').get_caller_identity().get('Account')
         self.session = boto3.session.Session()
         self.region = self.session.region_name
@@ -68,6 +68,7 @@ class PClusterHelper:
         self.mungekey_secret_name="munge_key"+'_'+federation_name
         self.federation_name=federation_name
         self.ssh_key_name='pcluster-athena-key'
+        self.slurm_version=slurm_version
 
         
     ### assuem you have created a database secret in SecretManager with the name "slurm_dbd_credential"
@@ -226,7 +227,7 @@ class PClusterHelper:
 
         post_install_script_prefix = self.post_install_script
         post_install_script_location = "s3://{}/{}".format(self.my_bucket_name, post_install_script_prefix)
-        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name  + ' ' + self.region  + ' ' + self.dbd_host + ' ' + self.federation_name + "'"
+        post_install_script_args = "'" + rds_secret['host']+' '+str(rds_secret['port']) +' ' + rds_secret['username'] + ' ' + rds_secret['password'] + ' ' + self.pcluster_name  + ' ' + self.region + ' ' + self.slurm_version + ' ' + self.dbd_host + ' ' + self.federation_name + "'"
 
 
         # ### Post installation script
@@ -256,8 +257,9 @@ class PClusterHelper:
               '${POST_INSTALL_SCRIPT_ARGS_4}': "'"+rds_secret['password']+"'",
               '${POST_INSTALL_SCRIPT_ARGS_5}': "'"+self.pcluster_name+"'",
               '${POST_INSTALL_SCRIPT_ARGS_6}': "'"+self.region+"'",
-              '${POST_INSTALL_SCRIPT_ARGS_7}': "'"+self.dbd_host+"'",       
-              '${POST_INSTALL_SCRIPT_ARGS_8}': "'"+self.federation_name+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_7}': "'"+self.slurm_version+"'",
+              '${POST_INSTALL_SCRIPT_ARGS_8}': "'"+self.dbd_host+"'",       
+              '${POST_INSTALL_SCRIPT_ARGS_9}': "'"+self.federation_name+"'",
               '${BUCKET_NAME}': self.my_bucket_name
              }
 
@@ -363,8 +365,8 @@ class PClusterHelper:
     def update_header_token(self):
         # we use 'slurm' as the default user on head node for slurm commands
         token = self.get_secret()
-        post_headers = {'X-SLURM-USER-NAME':'slurm', 'X-SLURM-USER-TOKEN': token, 'Content-type': 'application/json', 'Accept': 'application/json'}
-        get_headers = {'X-SLURM-USER-NAME':'slurm', 'X-SLURM-USER-TOKEN': token, 'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
+        post_headers = {'X-SLURM-USER-NAME':'ec2-user', 'X-SLURM-USER-TOKEN': token, 'Content-type': 'application/json', 'Accept': 'application/json'}
+        get_headers = {'X-SLURM-USER-NAME':'ec2-user', 'X-SLURM-USER-TOKEN': token, 'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
         return [post_headers, get_headers]
 
     ###

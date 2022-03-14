@@ -30,10 +30,12 @@ PCLUSTER_RDS_USER="$3"
 PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
+slurm_version="$7"
 
 
-tar_ball=workshop-pcluster3-slurm-athena-hdf5.tar.gz
-slurm_version=20.11.8
+# pcluster version 3.1.2 uses 21.08.6
+#slurm_version=20.11.8
+tar_ball=workshop-pcluster3-slurm${slurm_version}-athena-hdf5.tar.gz
 
 
 # the head-node is used to run slurmdbd
@@ -42,42 +44,35 @@ CORES=$(grep processor /proc/cpuinfo | wc -l)
 lower_name=$(echo $PCLUSTER_NAME | tr '[:upper:]' '[:lower:]')
 
 yum update -y
+
 # change the cluster name
 sed -i 's/ClusterName=parallelcluster/ClusterName='$lower_name'/g' /opt/slurm/etc/slurm.conf
 rm /var/spool/slurm.state/*
 
 #####
-#install pre-requisites
+#install pre-requisites for slurmrestd
 #####
 yum install –y epel-release
 yum-config-manager --enable epel
 yum install -y hdf5-devel
 yum install -y libyaml http-parser-devel json-c-devel
+yum install -y libjwt libjwt-devel
 
 # update the linked libs 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
 cat > /etc/ld.so.conf.d/slurmrestd.conf <<EOF
-/usr/local/lib
-/usr/local/lib64
+/lib64
 EOF
 
-cd /shared
-# install libjwt-devel as part of the pre-requisites. libjwt-devel.so and libjwt.so will be installed in /usr/lib64
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-1.9.0-1.of.el7.x86_64.rpm
-# ignore the libjwt already installed error
-rpm -Uvh libjwt-1.9.0-1.of.el7.x86_64.rpm || true
-wget http://repo.openfusion.net/centos7-x86_64/libjwt-devel-1.9.0-1.of.el7.x86_64.rpm
-rpm -Uvh libjwt-devel-1.9.0-1.of.el7.x86_64.rpm || true
 
 ##### 
 # Install athena and hdf5
 #####
 #get and build hdf5, which is required by athena++
 PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
-cd /shared
 
 # Get precompiled athena++, hdf5, slurm so the pcluster creation will be faster for workshops
-
+cd /shared
 wget https://static.myoctank.net/public/${tar_ball}
 tar xvzf ${tar_ball}
 
@@ -85,7 +80,6 @@ cd hdf5-1.12.0
 make install
 
 cd /shared/slurm-${slurm_version}
-
 # config and build slurm
 make install
 make install-contrib
@@ -99,6 +93,7 @@ chmod 0700 /var/spool/slurm.state/jwt_hs256.key
 cat >>/opt/slurm/etc/slurm.conf<<EOF
 # Enable jwt auth for Slurmrestd
 AuthAltTypes=auth/jwt
+
 #
 ## /opt/slurm/etc/slurm.conf
 #
@@ -170,7 +165,8 @@ ConditionPathExists=/opt/slurm/etc/slurmrestd.conf
 
 [Service]
 Environment=SLURM_CONF=/opt/slurm/etc/slurmrestd.conf
-ExecStart=/opt/slurm/sbin/slurmrestd -vvvv 0.0.0.0:8082 -u slurm
+Environment="SLURM_JWT=daemon"
+ExecStart=/opt/slurm/sbin/slurmrestd -vvvv 0.0.0.0:8082 -u ec2-user
 PIDFile=/var/run/slurmrestd.pid
 
 [Install]
@@ -183,7 +179,6 @@ systemctl start slurmrestd
 # restart slurmctd  - this needs to be done after slurmdbd start, otherwise the cluster won't register
 systemctl restart slurmctld
 
-
 ## initialize the sacctmgr - this is done automatically by slurmdbd
 ##/opt/slurm/bin/sacctmgr add cluster parallelcluster
 
@@ -192,7 +187,7 @@ systemctl restart slurmctld
 #####
 cat >/shared/token_refresher.sh<<EOF
 #!/bin/bash
-export \$(/opt/slurm/bin/scontrol token -u slurm)
+export \$(/opt/slurm/bin/scontrol token -u ec2-user)
 aws secretsmanager describe-secret --secret-id slurm_token_${PCLUSTER_NAME} --region $REGION
 if [ \$? -eq 0 ]
 then
@@ -217,7 +212,7 @@ EOF
 # we will be using /shared/tmp for running our program nad store the output files. 
 #####
 mkdir -p /shared/tmp
-chown slurm:slurm /shared/tmp
+chown ec2-user:ec2-user /shared/tmp
 
 cat >/shared/tmp/fetch_and_run.sh<<EOF
 #!/bin/bash

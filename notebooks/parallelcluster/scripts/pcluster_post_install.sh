@@ -29,6 +29,8 @@ PCLUSTER_RDS_USER="$3"
 PCLUSTER_RDS_PASS="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
+slurm_version="$7"
+
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -101,13 +103,13 @@ cd /shared
 # error could be seen in the cfn-init.log file
 # changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
 # changelog: change to 20.11.8 from 20.11.7 on 2021/09/16 - pcluster 3
-slurm_version=20.11.8
+# slurm_version=20.11.8
 wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
 tar xjf slurm-${slurm_version}.tar.bz2
 cd slurm-${slurm_version}
 
 # config and build slurm
-./configure --prefix=/opt/slurm --with-pmix=/opt/pmix
+./configure --prefix=/opt/slurm --with-pmix=/opt/pmix --enable-slurmrestd
 make -j $CORES
 make install
 make install-contrib
