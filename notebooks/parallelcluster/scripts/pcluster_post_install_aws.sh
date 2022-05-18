@@ -41,7 +41,7 @@ else
   host_name="$8"
 fi
 
-CORES=$(grep processor /proc/cpuinfo | wc -l)
+#CORES=$(grep processor /proc/cpuinfo | wc -l)
 lower_name=$(echo $PCLUSTER_NAME | tr '[:upper:]' '[:lower:]')
 
 yum update -y
@@ -49,46 +49,12 @@ yum update -y
 sed -i 's/ClusterName=parallelcluster/ClusterName='$lower_name'/g' /opt/slurm/etc/slurm.conf
 rm /var/spool/slurm.state/*
 
-#####
-#install pre-requisites
-#####
-yum install –y epel-release
-yum-config-manager --enable epel
-yum install -y hdf5-devel
-yum install -y libyaml http-parser-devel json-c-devel
-yum install -y libjwt libjwt-devel 
-
 # update the linked libs 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 cat > /etc/ld.so.conf.d/slurmrestd.conf <<EOF
 /lib64
 EOF
 
-
-#####
-# Update slurm, with slurmrestd
-#####
-# Python3 is requred to build slurm >= 20.02, 
-
-#source /opt/parallelcluster/pyenv/versions/3.6.9/envs/cookbook_virtualenv/bin/activate
-source /opt/parallelcluster/pyenv/versions/cookbook_virtualenv/bin/activate
-
-cd /shared
-# have to use the exact same slurm version as in the released version of ParallelCluster2.10.1 - 20.02.4
-# as of May 13, 20.02.4 was removed from schedmd and was replaced with .7 
-# error could be seen in the cfn-init.log file
-# changelog: change to 20.11.7 from 20.02.7 on 2021/09/03 - pcluster 2.11.2 
-# slurm_version=20.11.8
-wget https://download.schedmd.com/slurm/slurm-${slurm_version}.tar.bz2
-tar xjf slurm-${slurm_version}.tar.bz2
-cd slurm-${slurm_version}
-
-# config and build slurm
-./configure --prefix=/opt/slurm --with-pmix=/opt/pmix --enable-slurmrestd
-make -j $CORES
-make install
-make install-contrib
-deactivate
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
