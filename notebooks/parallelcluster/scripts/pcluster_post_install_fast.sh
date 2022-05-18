@@ -32,11 +32,7 @@ PCLUSTER_NAME="$5"
 REGION="$6"
 slurm_version="$7"
 
-
-# pcluster version 3.1.2 uses 21.08.6
-#slurm_version=20.11.8
-tar_ball=workshop-pcluster3-slurm${slurm_version}-athena-hdf5.tar.gz
-
+tar_ball=workshop-pcluster3-athena-hdf5.tar.gz
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -55,8 +51,8 @@ rm /var/spool/slurm.state/*
 yum install –y epel-release
 yum-config-manager --enable epel
 yum install -y hdf5-devel
-yum install -y libyaml http-parser-devel json-c-devel
-yum install -y libjwt libjwt-devel
+#yum install -y libyaml http-parser-devel json-c-devel
+#yum install -y libjwt libjwt-devel
 
 # update the linked libs 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
@@ -78,11 +74,6 @@ tar xvzf ${tar_ball}
 
 cd hdf5-1.12.0
 make install
-
-cd /shared/slurm-${slurm_version}
-# config and build slurm
-make install
-make install-contrib
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
