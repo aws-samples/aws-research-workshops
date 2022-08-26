@@ -30,6 +30,7 @@ from botocore.exceptions import ClientError
 
 
 class PClusterCostEstimator:
+    
     def __init__(self, cur_db_name, cur_table_name, query_bucket_name, query_path_name):
         self.cur_db_name=cur_db_name
         self.cur_table_name=cur_table_name
@@ -37,6 +38,13 @@ class PClusterCostEstimator:
         self.query_path_name=query_path_name
         self.athena_client= boto3.client('athena')
         self.s3_client = boto3.client('s3')
+        
+    def to_df_from_s3url (self, s3url):
+        file_name = s3url.split('/')[-1]
+        key = f'{self.query_path_name}/{file_name}'
+        obj = self.s3_client.get_object(Bucket=self.query_bucket_name, Key=key)
+        cur_df = pd.read_csv(obj['Body'])
+        return cur_df
         
     def retrieve_cur_df (self, response, is_download=False, download_file_name=None):
         exec_id = response['QueryExecutionId']
@@ -48,7 +56,8 @@ class PClusterCostEstimator:
             if resp['QueryExecution']['Status']['State'] == 'SUCCEEDED':
                 print("Query completed")
                 result = resp['QueryExecution']['ResultConfiguration']['OutputLocation']
-                cur_df = pd.read_csv(result)
+                #print("Query result", result)
+                cur_df = self.to_df_from_s3url(result)
                 if is_download:
                     file_name = result.split('/')[-1]
                     print(self.query_bucket_name, f'{self.query_path_name}/{file_name}')
@@ -58,7 +67,7 @@ class PClusterCostEstimator:
                 print("Failed", resp['QueryExecution']['Status']['StateChangeReason'])
                 break    
             else: 
-                print("Query not completed yet",resp['QueryExecution']['Status']['State']  )
+                #print("Query not completed yet",resp['QueryExecution']['Status']['State']  )
                 time.sleep(5)
 
     def submit_query (self, sql_str):
@@ -118,9 +127,12 @@ class PClusterCostEstimator:
             group by resource_tags_user_queue_name,
             line_item_usage_start_date""".format(self.cur_db_name, self.cur_table_name,cur_year, cur_month, cluster_name)
         
+        print(sql_str)
+        
         response = self.submit_query(sql_str)
-        cur_df = self.retrieve_cur_df(response, False, "cluster_daily_per_month_queue_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
+        cur_df = self.retrieve_cur_df(response, True, "cluster_daily_per_month_queue_{}_{}_{}.csv".format(cluster_name, cur_year, cur_month))
 
+        print(cur_df.head())
         cur_df['time_start'] = pd.to_datetime(cur_df['time_start'])
         return cur_df.groupby(['partition', cur_df['time_start'].dt.date]).sum()
         
