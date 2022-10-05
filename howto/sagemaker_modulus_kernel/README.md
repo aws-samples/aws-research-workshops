@@ -118,9 +118,9 @@ Once the modulus image is registered with SageMaker, the Module kernel will be a
 ## Step 7. Enjoy Modulus examples in SageMaker Studio 
 You can simply create a blank Jupyter Notebook and paste any Modulus examples into that notebook to run the python code.  
 
-You might need to change the config_path from "conf" to "/.conf"
+You might need to change the config_path from "conf" to "<absolute_path>/conf"
 ```
-@modulus.main(config_path="./conf", config_name="config")
+@modulus.main(config_path="<absolute_path>/conf", config_name="config")
 ```
     
     
