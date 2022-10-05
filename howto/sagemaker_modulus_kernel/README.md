@@ -123,7 +123,12 @@ You might need to change the config_path from "conf" to "<absolute_path>/conf"
 @modulus.main(config_path="<absolute_path>/conf", config_name="config")
 ```
     
+If you are running a notebook with GPU instance type and want to run nvidia-smi to monitor the GPU usage, you will need to open the "image terminal". 
     
+![image-terminal](sagemaker-studio-gpu-terminal.png)
+
+![image-terminal](sagemaker-studio-gpu-nvidia-smi.png)
+
 ## Appendix. Install Modulus in the built-in Pytorch 1.10/Python3.8/GPU Kernel 
 If you do not want to create a customized kernel for Modulus in SageMaker Studio, you can use an existing built-in Pytorch kernel and install Modulus in that kernel. 
     
