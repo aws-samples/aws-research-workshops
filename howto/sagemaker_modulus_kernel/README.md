@@ -3,7 +3,7 @@
 ## Introduction
 [NVIDIA Modulus](https://developer.nvidia.com/modulus) is a framework for developing Physics Informed Neural Network (PINN) models to solve physics problems governed by partial differential equations. The framework is optimized for GPU instances and use Python. 
 
-Amazon Sagemaker is the go-to cloud Machine Learning service that seperate the infrastructure (networking, IAM, storage, compute - both CPU and GPU) from Machine Learning frameworks (Tensorflow, Pytorch etc). The frontend is Jupter Notebooks via SageMaker Notebooks or SageMaker Studio. 
+Amazon Sagemaker is the go-to cloud Machine Learning service that separate the infrastructure (networking, IAM, storage, compute - both CPU and GPU) from Machine Learning frameworks (Tensorflow, Pytorch etc). The frontend is Jupter Notebooks via SageMaker Notebooks or SageMaker Studio. 
 
 In this howto, we are going to show you how to run Modulus in SageMaker Studio. 
 
