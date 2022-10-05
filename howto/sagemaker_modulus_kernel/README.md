@@ -122,3 +122,31 @@ You might need to change the config_path from "conf" to "/.conf"
 ```
 @modulus.main(config_path="./conf", config_name="config")
 ```
+    
+    
+## Appendix. Install Modulus in the built-in Pytorch 1.10/Python3.8/GPU Kernel 
+If you do not want to create a customized kernel for Modulus in SageMaker Studio, you can use an existing built-in Pytorch kernel and install Modulus in that kernel. 
+    
+### How to install modulus in the Pytorch 1.10/Python 3.8/GPU kernel
+
+1. Start a Pytorch 1.10/Python 3.8/GPU kernel
+
+1. Open an "Image terminal" and do the following on the command line
+```
+# need hydra-core==1.1 to prevent the error
+# TypeError: _run_hydra() missing 1 required positional argument: 'args'
+pip3 install matplotlib transforms3d future typing numpy quadpy\
+             numpy-stl==2.16.3 h5py sympy==1.5.1 termcolor psutil\
+             symengine==0.6.1 numba Cython chaospy torch_optimizer\
+             vtk chaospy termcolor omegaconf hydra-core==1.1 einops\
+             timm tensorboard pandas orthopy ndim
+
+
+!git clone https://gitlab.com/nvidia/modulus/modulus.git
+!cd ./Modulus/
+# add the following line in setup.py, this is to prevent modulus to be installed as .egg
+#     zip_safe = False,
+!python setup.py install
+```
+
+3. After all that, restart the kernel 
