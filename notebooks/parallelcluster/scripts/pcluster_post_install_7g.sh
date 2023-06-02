@@ -82,8 +82,9 @@ cd athena-public-version
 # prob: blast, orszag_tang, disk, jet, kh, shock_tube, ... for a complete list, check src/pgen/
 #
 python configure.py --prob orszag_tang -b --flux hlld -omp -mpi -hdf5 --hdf5_path=/shared/hdf5-1.12.0/hdf5
-# -O3 optimization cause Athena++ slow to converge. switch to -O2
-sed -i 's/-O3 /-O2 /' Makefile
+## -O3 optimization cause Athena++ slow to converge. switch to -O2 - this is only needed for c6g
+# comment out to see if c7g works - this is not needed for c7g ,
+#sed -i 's/-O3 /-O2 /' Makefile
 make
 
 # set the jwt key
