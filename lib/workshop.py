@@ -23,20 +23,17 @@
 # workshop.
 
 
-import logging
-import os
-import time
-import boto3
-import argparse
-import botocore.session
-import botocore.exceptions
-import uuid
-import sys
-import tarfile
 import json
-from botocore.exceptions import ClientError
-from six.moves import urllib
+import logging
+import tempfile
+import time
+import uuid
+import zipfile
+from pathlib import Path
+from typing import Dict, List
 
+import boto3
+from botocore.exceptions import ClientError
 from dateutil import parser
 
 def create_and_configure_vpc(tag='research-workshop'): 
@@ -845,5 +842,98 @@ def commit_files(proj_name, branch_name, put_files, parent_commit_id):
                                                putFiles=put_files)
         
     print("Finished commit")
-    
-                                                   
+
+
+def upload_files_to_s3(
+    files: List[Dict], bucket_name: str, s3_prefix: str = ""
+) -> Dict[str, bool]:
+    """
+    Upload multiple files to S3 bucket from a dictionary.
+
+    Args:
+        files_dict: Dictionary with filename as key and content as value
+        bucket_name: Name of the S3 bucket
+        s3_prefix: Optional prefix for S3 keys (folder structure)
+        aws_profile: Optional AWS profile name
+
+    Returns:
+        Dictionary with filename as key and success status as value
+    """
+    # Initialize S3 client
+    session = boto3.session.Session()
+    s3_client = session.client("s3")
+
+    results = {}
+
+    for file in files:
+        filename = file["filePath"]
+        try:
+            # Construct S3 key
+            s3_key = f"{s3_prefix.rstrip('/')}/{filename}" if s3_prefix else filename
+
+            # Upload content to S3
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=s3_key,
+                Body=file["fileContent"].encode("utf-8"),
+                ContentType="text/plain",
+            )
+
+            print(f"Successfully uploaded {filename} to s3://{bucket_name}/{s3_key}")
+            results[filename] = True
+
+        except ClientError as e:
+            print(f"Failed to upload {filename}: {e}")
+            results[filename] = False
+        except Exception as e:
+            print(f"Unexpected error uploading {filename}: {e}")
+            results[filename] = False
+
+    return results
+
+
+def create_temp_files_and_upload(
+    files: List[Dict],
+    bucket_name: str,
+    s3_prefix: str = "",
+    zip_file: str = "temp_files.zip",
+) -> Dict[str, bool]:
+    """
+    Create temporary files, zip them, and upload to S3 bucket.
+
+    Args:
+        bucket_name: Name of the S3 bucket
+        s3_prefix: Optional prefix for S3 keys (folder structure)
+
+    Returns:
+        Dictionary with filename as key and success status as value
+    """
+
+    # Initialize S3 client
+    session = boto3.session.Session()
+    s3_client = session.client("s3")
+
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        for file in files:
+            filename = file["filePath"]
+            with open(temp_path / filename, "w") as f:
+                f.write(file["fileContent"])
+
+        # Create a zip file of the temp directory
+        zip_filename = temp_path / zip_file
+        with zipfile.ZipFile(zip_filename, "w") as zipf:
+            for file_path in temp_path.glob("*.*"):
+                if file_path.name != zip_file:
+                    zipf.write(file_path, arcname=file_path.name)
+
+        # Upload the zip file to S3
+        with open(zip_filename, "rb") as data:
+            s3_key = f"{s3_prefix.rstrip('/')}/{zip_file}" if s3_prefix else zip_file
+            s3_client.upload_fileobj(data, bucket_name, s3_key)
+
+        print(f"Successfully uploaded {zip_filename} to s3://{bucket_name}/{s3_key}")
+
+    return {str(zip_filename): True}
