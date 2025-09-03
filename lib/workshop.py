@@ -451,7 +451,7 @@ def create_simple_compute_environment(proj_name):
 
 
     batch_instance_role_name = f"batch_instance_role_{proj_name}"
-    batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess","arn:aws:iam::aws:policy/IAMFullAccess"]
+    batch_instance_policies = ["arn:aws:iam::aws:policy/CloudWatchFullAccess", "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role","arn:aws:iam::aws:policy/AmazonS3FullAccess"]
     create_service_role_with_policies(batch_instance_role_name, "ec2.amazonaws.com", batch_instance_policies)
     instance_profile_name =f"instance_profile_{proj_name}"
     try:
