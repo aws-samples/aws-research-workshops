@@ -1,11 +1,11 @@
 IMAGE_NAME=smstudio-modulus #Replace with your Image name
 REGION=us-east-1
-ACCOUNT_ID=<account-id>
-DOMAINID=<domain-id>
+ACCOUNT_ID=716665088992
+DOMAINID=d-wyjsall0yffa
 
 # Using with SageMaker Studio
 ## Create SageMaker Image with the image in ECR (modify image name as required)
-ROLE_ARN='arn:aws:iam::<account-id>:role/MySageMaker-ExecutionRole-Superman'
+ROLE_ARN='arn:aws:iam::$ACCOUNT_ID:role/MySageMaker-ExecutionRole-Superman'
 
 aws --region ${REGION} sagemaker create-image \
     --image-name ${IMAGE_NAME} \

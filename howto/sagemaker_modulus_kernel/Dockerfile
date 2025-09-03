@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/modulus/modulus:22.07
+FROM nvcr.io/nvidia/modulus/modulus:23.05
 
 ARG NB_USER="sagemaker-user"
 ARG NB_UID="1000"
@@ -17,7 +17,8 @@ RUN pip install \
         'sagemaker-studio-image-build>=0.4,<0.5' \
         'smdebug>=0.9,<0.10'
 # This image is using a version that's newer than what SageMaker is using. fix an imcompatibility issue 
-RUN sed -i '70 i \                args_parser.add_argument("-f", "--fff", help="a dummy argument to fool ipython", default="1")' /modulus/modulus/hydra/utils.py
+#RUN sed -i '70 i \                args_parser.add_argument("-f", "--fff", help="a dummy argument to fool ipython", default="1")' /modulus/modulus/hydra/utils.py
+RUN sed -i '102 i \                args_parser.add_argument("-f", "--fff", help="a dummy argument to fool ipython", default="1")' /usr/local/lib/python3.8/dist-packages/modulus/sym/hydra/utils.py
 
 # Make the default shell bash (vs "sh") for a better Jupyter terminal UX
 ENV SHELL=/bin/bash
