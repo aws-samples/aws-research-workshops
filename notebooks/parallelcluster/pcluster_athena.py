@@ -53,6 +53,7 @@ from IPython.display import HTML, display
 
 class PClusterHelper:
     def __init__(self, pcluster_name, config_name, post_install_script, slurm_version='', dbd_host='localhost', federation_name=''):
+        print("DEBUG: in PClusterHelper init")
         self.my_account_id = boto3.client('sts').get_caller_identity().get('Account')
         self.session = boto3.session.Session()
         self.region = self.session.region_name
@@ -208,7 +209,7 @@ class PClusterHelper:
         # update the RDS security group to allow inbound traffic to port 3306
         workshop.update_security_group(vpc_sgs[0]['VpcSecurityGroupId'], cidr, 3306)
 
-        print(os.popen("pcluster version").read())
+        # print(os.popen("pcluster version").read())
 
         # ### ParallelCluster config file
         # Start with the the configuration template file 
@@ -373,6 +374,8 @@ class PClusterHelper:
     # Convert response into json
     #
     def convert_response(self,resp):
+
+        print(f"Response {resp}")
         resp_str = resp.content.decode('utf-8')
         return json.loads(resp_str)
 
@@ -403,12 +406,14 @@ class PClusterHelper:
     # wrapper for get
     #
     def get_response_as_json(self, base_url):
+
         _, get_headers = self.update_header_token()
+
         try:
             resp = requests.get(base_url, headers=get_headers, verify=False)
-#            if resp.status_code != 200:
-#                # This means something went wrong.
-#                print("Error" , resp.status_code)
+            if resp.status_code != 200:
+                # This means something went wrong.
+                print("Error" , resp.status_code)
         except requests.exceptions.ConnectionError:
             resp.status_code = "Connection refused"
         return self.convert_response(resp)
