@@ -411,9 +411,6 @@ class PClusterHelper:
 
         try:
             resp = requests.get(base_url, headers=get_headers, verify=False)
-            if resp.status_code != 200:
-                # This means something went wrong.
-                print("Error" , resp.status_code)
         except requests.exceptions.ConnectionError:
             resp.status_code = "Connection refused"
         return self.convert_response(resp)
