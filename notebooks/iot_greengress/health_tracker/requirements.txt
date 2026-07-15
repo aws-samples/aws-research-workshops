@@ -17,7 +17,7 @@ enum34==1.1.6
 fire==0.1.2
 futures==3.1.1
 gg-group-setup==0.5.2
-idna==2.6
+idna==3.7
 ipaddress==1.0.18
 ipython==8.10.0
 ipython-genutils==0.2.0
