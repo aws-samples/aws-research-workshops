@@ -410,7 +410,8 @@ class PClusterHelper:
         _, get_headers = self.update_header_token()
 
         try:
-            resp = requests.get(base_url, headers=get_headers, verify=False)
+            #resp = requests.get(base_url, headers=get_headers, verify=False)
+            resp = requests.get(base_url, headers=get_headers)
         except requests.exceptions.ConnectionError:
             resp.status_code = "Connection refused"
         return self.convert_response(resp)
