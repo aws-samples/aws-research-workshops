@@ -404,14 +404,14 @@ class PClusterHelper:
 
     ### 
     # wrapper for get
+    # if you see error getting response from the url endpoint, try to change to "verify=False")
     #
     def get_response_as_json(self, base_url):
 
         _, get_headers = self.update_header_token()
 
         try:
-            #resp = requests.get(base_url, headers=get_headers, verify=False)
-            resp = requests.get(base_url, headers=get_headers)
+            resp = requests.get(base_url, headers=get_headers, verify=True)
         except requests.exceptions.ConnectionError:
             resp.status_code = "Connection refused"
         return self.convert_response(resp)
