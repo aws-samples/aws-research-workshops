@@ -48,9 +48,10 @@ rm /var/spool/slurm.state/*
 #####
 #install pre-requisites for slurmrestd
 #####
-yum install –y epel-release
-yum-config-manager --enable epel
-yum install -y hdf5-devel
+# NOTE: hdf5-devel is not available in the Amazon Linux 2023 default repos
+# (it was an EPEL package on Amazon Linux 2). HDF5 1.12.0 is provided by the
+# precompiled tarball fetched below and installed into /usr/local, so no
+# system HDF5 package is required here.
 #yum install -y libyaml http-parser-devel json-c-devel
 #yum install -y libjwt libjwt-devel
 
