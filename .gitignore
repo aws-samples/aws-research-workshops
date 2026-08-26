@@ -66,3 +66,5 @@ notebooks/container/buildspec.yml
 notebooks/parallelcluster/*.csv
 notebooks/container/eksworkshop.yaml
 notebooks/container/sratool-deploy.yaml
+#macOS
+.DS_Store
