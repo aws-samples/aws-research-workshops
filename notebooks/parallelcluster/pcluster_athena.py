@@ -376,8 +376,11 @@ class PClusterHelper:
     def convert_response(self,resp):
 
         print(f"Response {resp}")
-        resp_str = resp.content.decode('utf-8')
-        return json.loads(resp_str)
+        status = getattr(resp, 'status_code', None)
+        if status != 200:
+            body = getattr(resp, 'text', '')
+            raise RuntimeError(f"Slurm REST API returned {status}: {body[:500]}")
+        return resp.json()
 
 
 
