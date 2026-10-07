@@ -32,14 +32,37 @@ PCLUSTER_NAME="$5"
 REGION="$6"
 slurm_version="$7"
 
-tar_ball=workshop-pcluster3-athena-hdf5.tar.gz
-
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
 CORES=$(grep processor /proc/cpuinfo | wc -l)
 lower_name=$(echo $PCLUSTER_NAME | tr '[:upper:]' '[:lower:]')
 
-yum update -y
+# NOTE: `yum update -y` was removed to speed up cluster creation. It performed a full
+# system package update on every create (several minutes) and nothing in this script
+# requires it. If you need specific packages, install only those with a targeted
+# `yum install -y <pkg>`.
+
+# Build Athena++ in the BACKGROUND so it overlaps the Slurm (slurmdbd/slurmrestd/JWT)
+# configuration below; we only `wait` for it at the end.
+#
+# Athena++ is configured for VTK output, so HDF5 is NOT required. This removes the
+# slow HDF5 download + parallel build that previously dominated cluster-create time.
+# Compiling Athena++ alone is quick (~1-2 min). Override ATHENA_GIT_URL if you host a
+# mirror; the configure flags intentionally omit -hdf5.
+ATHENA_GIT_URL="${ATHENA_GIT_URL:-https://github.com/PrincetonUniversity/athena-public-version}"
+build_athena() {
+  export PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
+  cd /shared
+  if [ ! -d athena-public-version ]; then
+    git clone "${ATHENA_GIT_URL}"
+  fi
+  cd athena-public-version
+  # VTK output -> no -hdf5 flag / HDF5 path needed.
+  python configure.py --prob orszag_tang -b --flux hlld -omp -mpi
+  make -j "$(nproc)"
+}
+build_athena > /var/log/athena_build.log 2>&1 &
+ATHENA_BUILD_PID=$!
 
 # change the cluster name
 sed -i 's/ClusterName=parallelcluster/ClusterName='$lower_name'/g' /opt/slurm/etc/slurm.conf
@@ -48,10 +71,7 @@ rm /var/spool/slurm.state/*
 #####
 #install pre-requisites for slurmrestd
 #####
-# NOTE: hdf5-devel is not available in the Amazon Linux 2023 default repos
-# (it was an EPEL package on Amazon Linux 2). HDF5 1.12.0 is provided by the
-# precompiled tarball fetched below and installed into /usr/local, so no
-# system HDF5 package is required here.
+# No system HDF5 package is required: Athena++ is built for VTK output.
 #yum install -y libyaml http-parser-devel json-c-devel
 #yum install -y libjwt libjwt-devel
 
@@ -62,19 +82,19 @@ cat > /etc/ld.so.conf.d/slurmrestd.conf <<EOF
 EOF
 
 
-##### 
-# Install athena and hdf5
 #####
-#get and build hdf5, which is required by athena++
-PATH=/bin:/usr/bin/:/usr/local/bin/:/opt/amazon/openmpi/bin
-
-# Get precompiled athena++, hdf5, slurm so the pcluster creation will be faster for workshops
-cd /shared
-wget https://static.myoctank.net/public/${tar_ball}
-tar xvzf ${tar_ball}
-
-cd hdf5-1.12.0
-make install
+# Install athena (VTK build, no HDF5)
+#####
+# The Athena++ build was started in the background near the top of this script
+# (build_athena) so it overlaps the Slurm config above. Wait for it to finish and
+# verify it succeeded; batch jobs depend on /shared/athena-public-version.
+echo "Waiting for background Athena++ build to complete..."
+if ! wait "${ATHENA_BUILD_PID}"; then
+  echo "ERROR: background Athena++ build failed. See /var/log/athena_build.log" >&2
+  cat /var/log/athena_build.log >&2 || true
+  exit 1
+fi
+echo "Athena++ build complete."
 
 # set the jwt key
 openssl genrsa -out /var/spool/slurm.state/jwt_hs256.key 2048
