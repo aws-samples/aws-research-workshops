@@ -27,10 +27,30 @@ esac
 PCLUSTER_RDS_HOST="$1"
 PCLUSTER_RDS_PORT="$2"
 PCLUSTER_RDS_USER="$3"
-PCLUSTER_RDS_PASS="$4"
+# Arg 4 is the AWS Secrets Manager secret NAME holding the DB credential (not the
+# plaintext password). Fetch the password at runtime so it never appears in the cluster
+# config, CloudFormation parameters, cfnconfig, or CloudWatch logs. The head node's
+# instance role has SecretsManagerReadWrite.
+PCLUSTER_RDS_SECRET_NAME="$4"
 PCLUSTER_NAME="$5"
 REGION="$6"
 slurm_version="$7"
+
+# Resolve the region if it was not passed explicitly (fall back to IMDS).
+if [ -z "${REGION}" ]; then
+  REGION=$(curl -s -H "X-aws-ec2-metadata-token: $(curl -s -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')" http://169.254.169.254/latest/meta-data/placement/region)
+fi
+
+# Fetch the DB password from Secrets Manager. The secret is a JSON blob created by
+# db-create.yml with a "password" key.
+PCLUSTER_RDS_PASS=$(aws secretsmanager get-secret-value \
+  --secret-id "${PCLUSTER_RDS_SECRET_NAME}" \
+  --region "${REGION}" \
+  --query 'SecretString' --output text | python3 -c 'import sys,json; print(json.load(sys.stdin)["password"])')
+if [ -z "${PCLUSTER_RDS_PASS}" ]; then
+  echo "ERROR: could not retrieve DB password from secret '${PCLUSTER_RDS_SECRET_NAME}'" >&2
+  exit 1
+fi
 
 # the head-node is used to run slurmdbd
 host_name=$(hostname)
@@ -57,8 +77,16 @@ build_athena() {
     git clone "${ATHENA_GIT_URL}"
   fi
   cd athena-public-version
+  # Amazon Linux 2023 ships GCC 11, whose libstdc++ headers no longer transitively
+  # include <limits>. Two sources in the upstream public version use
+  # std::numeric_limits without including <limits>, which breaks compilation on AL2023.
+  # Add the include if missing (idempotent).
+  for f in src/mesh/amr_loadbalance.cpp src/task_list/sts_task_list.cpp; do
+    grep -q '#include <limits>' "$f" || sed -i '0,/#include/s//#include <limits>\n#include/' "$f"
+  done
   # VTK output -> no -hdf5 flag / HDF5 path needed.
-  python configure.py --prob orszag_tang -b --flux hlld -omp -mpi
+  # Amazon Linux 2023 ships only python3 (no unversioned `python`); use python3 explicitly.
+  python3 configure.py --prob orszag_tang -b --flux hlld -omp -mpi
   make -j "$(nproc)"
 }
 build_athena > /var/log/athena_build.log 2>&1 &

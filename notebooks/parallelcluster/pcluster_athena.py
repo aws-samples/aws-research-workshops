@@ -181,7 +181,11 @@ class PClusterHelper:
               '${POST_INSTALL_SCRIPT_ARGS_1}': "'"+rds_secret['host']+"'",
               '${POST_INSTALL_SCRIPT_ARGS_2}': "'"+str(rds_secret['port'])+"'",
               '${POST_INSTALL_SCRIPT_ARGS_3}': "'"+rds_secret['username']+"'",
-              '${POST_INSTALL_SCRIPT_ARGS_4}': "'"+rds_secret['password']+"'",
+              # Pass the Secrets Manager secret NAME, not the plaintext password. The
+              # post-install script fetches the password at runtime on the head node
+              # (which has SecretsManagerReadWrite). This keeps the credential out of the
+              # cluster config, CloudFormation parameters, cfnconfig, and CloudWatch logs.
+              '${POST_INSTALL_SCRIPT_ARGS_4}': "'"+self.rds_secret_name+"'",
               '${POST_INSTALL_SCRIPT_ARGS_5}': "'"+self.pcluster_name+"'",
               '${BUCKET_NAME}': self.my_bucket_name
              }
